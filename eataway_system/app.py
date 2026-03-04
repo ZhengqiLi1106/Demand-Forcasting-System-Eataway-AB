@@ -434,6 +434,43 @@ def compute_date_range_actual(start_str: str, end_str: str):
     return result
 
 
+def _should_show_prediction(from_d_str: str, to_d_str: str) -> bool:
+    """判断是否应该显示预测数据。
+    仅对以下两种情况显示预测：
+      1. 请求区间与当前送货周（本周）有重叠
+      2. 请求区间与模型预测周（W11等）有重叠
+    W12、W13 等更远的未来周返回 False（没有可靠预测）。
+    """
+    from datetime import date as _date
+    try:
+        s = _date.fromisoformat(from_d_str)
+        e = _date.fromisoformat(to_d_str)
+    except Exception:
+        return False
+    today = _date.today()
+    if e < today:          # 纯历史区间
+        return False
+
+    # ① 当前送货周（以周日为起点）
+    wd       = today.weekday()            # Mon=0 … Sun=6
+    curr_sun = today - timedelta(days=(wd + 1) % 7)   # 本周周日
+    curr_sat = curr_sun + timedelta(days=6)             # 本周周六
+    if s <= curr_sat and e >= curr_sun:
+        return True
+
+    # ② 模型预测周
+    pw = get_predicted_week()
+    if pw:
+        pm = week_monday(pw)
+        if pm:
+            pw_sun = (pm - timedelta(days=1)).date()
+            pw_sat = (pm + timedelta(days=5)).date()
+            if s <= pw_sat and e >= pw_sun:
+                return True
+
+    return False
+
+
 def _pred_date_map(start_str: str, end_str: str):
     """若日期区间与预测周有重叠，返回 (pred_mon, overlap_dates_set)，否则 None。
     eataway 送货周 = 周日(-1) 到 周六(+5)，以周一为基准。
@@ -626,14 +663,8 @@ def api_driver():
     # ── 日期区间模式（新UI使用） ───────────────────────────────────────
     if from_d and to_d:
         date_range_label = fmt_date_range(from_d, to_d)
-        try:
-            from datetime import date as _date2
-            end_d   = _date2.fromisoformat(to_d)
-            today_d = datetime.now().date()
-            # 只要结束日期在今天或未来，就显示预测（含本周剩余天数）
-            is_future = end_d >= today_d
-        except Exception:
-            is_future = False
+        # 仅对本周或预测周显示预测，避免 W12+ 全部返回同一份数据
+        is_future = _should_show_prediction(from_d, to_d)
 
         if is_future:
             # 含未来日期 → 优先返回模型预测（按星期几映射到请求日期）
@@ -698,13 +729,7 @@ def api_kitchen():
     # ── 日期区间模式 ───────────────────────────────────────────────────
     if from_d and to_d:
         date_range_label = fmt_date_range(from_d, to_d)
-        try:
-            from datetime import date as _date2
-            end_d   = _date2.fromisoformat(to_d)
-            today_d = datetime.now().date()
-            is_future = end_d >= today_d
-        except Exception:
-            is_future = False
+        is_future = _should_show_prediction(from_d, to_d)
 
         if is_future:
             pred_data = get_kitchen_predicted_for_dates(from_d, to_d)
