@@ -87,6 +87,19 @@ def week_to_range(yw: str) -> str:
     thu = mon + timedelta(days=3)
     return f"{fmt_d(sun)} – {fmt_d(thu)} {mon.year}"
 
+def fmt_date_range(start_str: str, end_str: str) -> str:
+    """把 YYYY-MM-DD 区间格式化为 '9 mar – 15 mar 2026'。"""
+    try:
+        s = datetime.strptime(start_str, "%Y-%m-%d")
+        e = datetime.strptime(end_str,   "%Y-%m-%d")
+        if start_str == end_str:
+            return f"{s.day} {MONTHS_SV[s.month-1]} {s.year}"
+        if s.year == e.year:
+            return f"{s.day} {MONTHS_SV[s.month-1]} – {e.day} {MONTHS_SV[e.month-1]} {s.year}"
+        return f"{s.day} {MONTHS_SV[s.month-1]} {s.year} – {e.day} {MONTHS_SV[e.month-1]} {e.year}"
+    except Exception:
+        return f"{start_str} – {end_str}"
+
 def day_label(yw: str, day_name: str) -> str:
     mon = week_monday(yw)
     if not mon:
@@ -231,8 +244,9 @@ def get_metrics():
 
 
 # ── 历史实际数据（来自 1year.csv） ────────────────────────────
-_raw_state  = {"df": None, "mtime": None}
-_hist_cache = {}   # year_week → {"driver": {…}, "kitchen": {…}}
+_raw_state   = {"df": None, "mtime": None}
+_hist_cache  = {}   # year_week → {"driver": {…}, "kitchen": {…}}
+_range_cache = {}   # (start, end) → {"driver": {…}, "kitchen": {…}}
 
 def _get_raw_df():
     """带 mtime 缓存的 1year.csv 加载器。文件变化时自动失效。
@@ -276,6 +290,7 @@ def _get_raw_df():
             _raw_state["df"]    = df
             _raw_state["mtime"] = mtime
             _hist_cache.clear()
+            _range_cache.clear()
         return _raw_state["df"]
     except Exception:
         return None
@@ -342,6 +357,193 @@ def compute_week_actual(year_week: str):
     _hist_cache[year_week] = result
     return result
 
+def compute_date_range_actual(start_str: str, end_str: str):
+    """
+    从 1year.csv 按任意日期区间计算司机视图和厨房视图。
+    每个条目使用实际日期作为标签（如 'Mån 9/3'）。
+    返回 {"driver": {…}, "kitchen": {…}}，无数据时返回 None。
+    """
+    cache_key = (start_str, end_str)
+    if cache_key in _range_cache:
+        return _range_cache[cache_key]
+
+    import pandas as pd
+    df = _get_raw_df()
+    if df is None:
+        return None
+    try:
+        s = pd.Timestamp(start_str)
+        e = pd.Timestamp(end_str) + pd.Timedelta(days=1)  # 包含结束日
+    except Exception:
+        return None
+
+    rdf = df[(df["datum"] >= s) & (df["datum"] < e)].copy()
+    if rdf.empty:
+        return None
+
+    # 生成日期标签：'Mån 9/3'
+    rdf["_dstr"]  = rdf["datum"].apply(lambda d: f"{d.day}/{d.month}")
+    rdf["_dlbl"]  = (rdf["_day"].map(DAY_SHORT).fillna("").astype(str)
+                     + " " + rdf["_dstr"])
+    rdf["_dsort"] = rdf["datum"].dt.date   # 用于排序
+
+    # ── 司机视图 ──
+    sd = (rdf.groupby(["ort", "namn", "_dsort", "_dlbl"])
+             .agg(qty=("faktisk", "sum"))
+             .reset_index())
+    prd = (rdf[rdf["faktisk"] > 0]
+              .groupby(["ort", "namn", "_dsort", "sort"])
+              .agg(qty=("faktisk", "sum"))
+              .reset_index())
+
+    driver = {}
+    for _, row in sd[sd["qty"] > 0].iterrows():
+        ort, namn = str(row["ort"]), str(row["namn"])
+        dk, label, qty = row["_dsort"], str(row["_dlbl"]), int(row["qty"])
+        prods = prd[(prd["ort"] == row["ort"]) & (prd["namn"] == row["namn"]) &
+                    (prd["_dsort"] == dk)]["sort"].tolist()
+        driver.setdefault(ort, {}).setdefault(namn, []).append({
+            "day": str(dk), "day_label": label, "qty": qty,
+            "range": str(qty),
+            "products": " | ".join(str(p) for p in prods),
+            "n": len(prods),
+        })
+    for ort in driver:
+        for namn in driver[ort]:
+            driver[ort][namn].sort(key=lambda x: x["day"])
+
+    # ── 厨房视图 ──
+    cat = (rdf.groupby(["_dsort", "_dlbl", "typ", "sort"])
+              .agg(qty=("faktisk", "sum"), stores=("namn", "nunique"))
+              .reset_index())
+    cat = cat[cat["qty"] > 0].sort_values(["_dsort", "qty"], ascending=[True, False])
+
+    kitchen = {}
+    for _, row in cat.iterrows():
+        dk = str(row["_dsort"])
+        if dk not in kitchen:
+            kitchen[dk] = {"label": str(row["_dlbl"]), "rows": []}
+        kitchen[dk]["rows"].append({
+            "type": str(row["typ"]), "product": str(row["sort"]),
+            "qty": int(row["qty"]), "range": str(int(row["qty"])),
+            "stores": int(row["stores"]),
+        })
+
+    result = {"driver": driver, "kitchen": kitchen}
+    _range_cache[cache_key] = result
+    return result
+
+
+def _pred_date_map(start_str: str, end_str: str):
+    """若日期区间与预测周有重叠，返回 (pred_mon, overlap_dates_set)，否则 None。
+    eataway 送货周 = 周日(-1) 到 周六(+5)，以周一为基准。
+    """
+    from datetime import date as _date
+    pred_week = get_predicted_week()
+    if not pred_week:
+        return None
+    pred_mon = week_monday(pred_week)
+    if not pred_mon:
+        return None
+    try:
+        s = _date.fromisoformat(start_str)
+        e = _date.fromisoformat(end_str)
+    except Exception:
+        return None
+    # 送货周：周日(offset=-1) 到 周六(offset=+5)
+    pred_start_d = (pred_mon - timedelta(days=1)).date()   # 周日
+    pred_end_d   = (pred_mon + timedelta(days=5)).date()   # 周六
+    if e < pred_start_d or s > pred_end_d:
+        return None
+    # 只保留落在请求范围内的预测周日期（周日=-1 到 周六=+5）
+    in_range = set()
+    for offset in range(-1, 6):
+        d = (pred_mon + timedelta(days=offset)).date()
+        if s <= d <= e:
+            in_range.add(d)
+    return pred_mon, in_range
+
+
+def get_driver_predicted_for_dates(start_str: str, end_str: str) -> dict:
+    """把模型输出映射到实际日期（仅限与预测周有重叠的日期）。"""
+    info = _pred_date_map(start_str, end_str)
+    if not info:
+        return {}
+    pred_mon, in_range = info
+
+    df = load_csv(OUTPUT_DIR / "driver_view_v7.csv")
+    if df is None:
+        return {}
+    df["_ord"] = df["Day"].map(DAY_ORDER).fillna(9)
+
+    # 建立 day-name → 实际日期 映射
+    day_to_date = {}
+    for day_name, offset in DAY_OFFSETS.items():
+        d = (pred_mon + timedelta(days=offset)).date()
+        if d in in_range:
+            day_to_date[day_name] = d
+
+    result = {}
+    for route, rdf in df.groupby("Route"):
+        stores = {}
+        for store, sdf in rdf.groupby("Store"):
+            days = []
+            for _, row in sdf.sort_values("_ord").iterrows():
+                dn = row["Day"]
+                if dn not in day_to_date:
+                    continue
+                d = day_to_date[dn]
+                label = f"{DAY_SHORT.get(dn, dn)} {d.day}/{d.month}"
+                days.append({
+                    "day": str(d), "day_label": label,
+                    "qty": int(row["Total_Qty"]), "range": str(row["Range"]),
+                    "products": str(row.get("Products", "")),
+                    "n": int(row.get("N_Products", 0)),
+                })
+            if days:
+                stores[str(store)] = days
+        if stores:
+            result[str(route)] = stores
+    return result
+
+
+def get_kitchen_predicted_for_dates(start_str: str, end_str: str) -> dict:
+    """厨房预测视图：映射到实际日期。"""
+    info = _pred_date_map(start_str, end_str)
+    if not info:
+        return {}
+    pred_mon, in_range = info
+
+    df = load_csv(OUTPUT_DIR / "kitchen_view_v7.csv")
+    if df is None:
+        return {}
+    df["_ord"] = df["Day"].map(DAY_ORDER).fillna(9)
+    df = df.sort_values(["_ord", "Qty"], ascending=[True, False])
+
+    day_to_date = {}
+    for day_name, offset in DAY_OFFSETS.items():
+        d = (pred_mon + timedelta(days=offset)).date()
+        if d in in_range:
+            day_to_date[day_name] = d
+
+    result = {}
+    for day, ddf in df.groupby("Day"):
+        if day not in day_to_date:
+            continue
+        d = day_to_date[day]
+        label = f"{DAY_SHORT.get(day, day)} {d.day}/{d.month}"
+        result[str(d)] = {
+            "label": label,
+            "rows": [
+                {"type": str(r["Type"]), "product": str(r["Product"]),
+                 "qty": int(r["Qty"]), "range": str(r["Range"]),
+                 "stores": int(r["Stores"])}
+                for _, r in ddf.iterrows()
+            ]
+        }
+    return result
+
+
 def get_all_weeks():
     """返回所有可用周（实际 + 预测）。"""
     weeks = {}
@@ -364,19 +566,36 @@ def get_all_weeks():
 @app.route("/")
 def index():
     has_output = (OUTPUT_DIR / "driver_view_v7.csv").exists()
-    pred_week  = get_predicted_week() if has_output else ""
     metrics    = get_metrics() if has_output else None
+    pred_week  = get_predicted_week() if has_output else ""
 
-    all_wks    = get_all_weeks()
-    min_week   = all_wks[0]["week"] if all_wks else ""
+    # 默认日期区间 = 预测送货周（周日到周六）
+    # eataway 送货周：周日(offset=-1) 到 周六(offset=+5)
+    if pred_week:
+        mon = week_monday(pred_week)
+        if mon:
+            init_from = (mon - timedelta(days=1)).strftime("%Y-%m-%d")  # 周日
+            init_to   = (mon + timedelta(days=5)).strftime("%Y-%m-%d")  # 周六
+        else:
+            init_from = init_to = ""
+    else:
+        today     = datetime.now()
+        init_from = today.strftime("%Y-%m-%d")
+        init_to   = today.strftime("%Y-%m-%d")
+
+    # 最早可选日期 = 历史数据最早日期
+    df_raw   = _get_raw_df()
+    min_date = ""
+    if df_raw is not None and "datum" in df_raw.columns:
+        min_date = df_raw["datum"].min().strftime("%Y-%m-%d")
 
     return render_template("index.html",
                            has_output=has_output,
-                           pred_week=pred_week,
-                           init_week=pred_week,
-                           date_range=week_to_range(pred_week) if pred_week else "",
+                           init_from=init_from,
+                           init_to=init_to,
+                           date_range=fmt_date_range(init_from, init_to),
                            metrics=metrics,
-                           min_week=min_week,
+                           min_date=min_date,
                            pw_required=bool(APP_PASSWORD))
 
 @app.route("/api/weeks")
@@ -385,8 +604,50 @@ def api_weeks():
 
 @app.route("/api/driver")
 def api_driver():
-    week = request.args.get("week", "").strip()
-    pred = get_predicted_week()
+    from_d = request.args.get("from", "").strip()
+    to_d   = request.args.get("to",   "").strip()
+    week   = request.args.get("week", "").strip()
+    pred   = get_predicted_week()
+
+    # ── 日期区间模式（新UI使用） ───────────────────────────────────────
+    if from_d and to_d:
+        date_range_label = fmt_date_range(from_d, to_d)
+        try:
+            from datetime import date as _date2
+            start_d = _date2.fromisoformat(from_d)
+            today_d = datetime.now().date()
+            is_future = start_d >= today_d
+        except Exception:
+            is_future = False
+
+        if is_future:
+            # 未来日期优先返回模型预测
+            pred_data = get_driver_predicted_for_dates(from_d, to_d)
+            if pred_data:
+                return jsonify({
+                    "data":       pred_data,
+                    "date_range": date_range_label,
+                    "type":       "predicted",
+                })
+        # 查历史实际数据
+        actual = compute_date_range_actual(from_d, to_d)
+        if actual is not None:
+            return jsonify({
+                "data":       actual["driver"],
+                "date_range": date_range_label,
+                "type":       "actual",
+            })
+        # 过去无实际数据也尝试预测（部分重叠情况）
+        pred_data = get_driver_predicted_for_dates(from_d, to_d)
+        if pred_data:
+            return jsonify({
+                "data":       pred_data,
+                "date_range": date_range_label,
+                "type":       "predicted",
+            })
+        return jsonify({"data": {}, "date_range": date_range_label, "type": "nodata"})
+
+    # ── 周模式（向后兼容旧参数） ──────────────────────────────────────
     if not week:
         week = pred
 
@@ -400,8 +661,8 @@ def api_driver():
             "type":       "actual",
         })
 
-    # 无实际数据 → 返回模型预测（日期标签用请求的周）
-    if pred:
+    # 无实际数据 → 只为"模型预测周"返回预测，其余周返回nodata（避免所有未来周都显示同一数据）
+    if pred and week == pred:
         return jsonify({
             "data":       get_driver_predicted(display_yw=week),
             "year_week":  week,
@@ -414,8 +675,47 @@ def api_driver():
 
 @app.route("/api/kitchen")
 def api_kitchen():
-    week = request.args.get("week", "").strip()
-    pred = get_predicted_week()
+    from_d = request.args.get("from", "").strip()
+    to_d   = request.args.get("to",   "").strip()
+    week   = request.args.get("week", "").strip()
+    pred   = get_predicted_week()
+
+    # ── 日期区间模式 ───────────────────────────────────────────────────
+    if from_d and to_d:
+        date_range_label = fmt_date_range(from_d, to_d)
+        try:
+            from datetime import date as _date2
+            start_d = _date2.fromisoformat(from_d)
+            today_d = datetime.now().date()
+            is_future = start_d >= today_d
+        except Exception:
+            is_future = False
+
+        if is_future:
+            pred_data = get_kitchen_predicted_for_dates(from_d, to_d)
+            if pred_data:
+                return jsonify({
+                    "data":       pred_data,
+                    "date_range": date_range_label,
+                    "type":       "predicted",
+                })
+        actual = compute_date_range_actual(from_d, to_d)
+        if actual is not None:
+            return jsonify({
+                "data":       actual["kitchen"],
+                "date_range": date_range_label,
+                "type":       "actual",
+            })
+        pred_data = get_kitchen_predicted_for_dates(from_d, to_d)
+        if pred_data:
+            return jsonify({
+                "data":       pred_data,
+                "date_range": date_range_label,
+                "type":       "predicted",
+            })
+        return jsonify({"data": {}, "date_range": date_range_label, "type": "nodata"})
+
+    # ── 周模式（向后兼容） ─────────────────────────────────────────────
     if not week:
         week = pred
 
@@ -428,7 +728,7 @@ def api_kitchen():
             "type":       "actual",
         })
 
-    if pred:
+    if pred and week == pred:
         return jsonify({
             "data":       get_kitchen_predicted(display_yw=week),
             "year_week":  week,
@@ -485,6 +785,7 @@ def api_upload():
         # 使缓存失效
         _raw_state["df"] = None
         _hist_cache.clear()
+        _range_cache.clear()
         size_mb = DATA_FILE.stat().st_size / 1024 / 1024
         return jsonify({"ok": True, "msg": f"上传成功 ({size_mb:.1f} MB)，历史数据已更新"})
     except Exception as e:
