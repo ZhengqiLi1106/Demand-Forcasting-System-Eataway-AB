@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: eataway
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --chdir eataway_system app:app --bind 0.0.0.0:$PORT --timeout 300 --workers 1
+    envVars:
+      - key: APP_PASSWORD
+        sync: false          # 在 Render 控制台手动填写
+      - key: PYTHONIOENCODING
+        value: utf-8
+    disk:
+      name: eataway-data
+      mountPath: /opt/render/project/src
+      sizeGB: 1

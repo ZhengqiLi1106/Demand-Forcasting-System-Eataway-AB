@@ -1,0 +1,1159 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Eataway — Leveransprognos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #f5f6f8;
+    --bg2:       #ffffff;
+    --bg3:       #f0f2f5;
+    --border:    #e2e5ea;
+    --border2:   #cbd0d8;
+    --text:      #1a1d23;
+    --muted:     #6b7280;
+    --muted2:    #9ca3af;
+    --orange:    #e07520;
+    --orange-lt: #fef3e8;
+    --orange-md: #f5a623;
+    --green:     #16a34a;
+    --green-lt:  #f0fdf4;
+    --red:       #dc2626;
+    --red-lt:    #fef2f2;
+    --blue:      #2563eb;
+    --blue-lt:   #eff6ff;
+    --mono:      'IBM Plex Mono', monospace;
+    --sans:      'IBM Plex Sans', sans-serif;
+    --radius:    6px;
+    --shadow:    0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md: 0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.05);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 13px;
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ─────────────────────────────────────────── */
+  header {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    height: 56px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: var(--shadow);
+  }
+
+  .logo {
+    font-family: var(--sans);
+    font-weight: 700;
+    font-size: 16px;
+    color: var(--orange);
+    letter-spacing: -0.3px;
+    white-space: nowrap;
+  }
+  .logo span { color: var(--muted); font-weight: 400; }
+
+  /* ── WEEK NAVIGATOR ──────────────────────────────────── */
+  .week-nav {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+  }
+  .week-nav-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--muted);
+    cursor: pointer;
+    width: 28px;
+    height: 28px;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    flex-shrink: 0;
+    padding: 0;
+    line-height: 1;
+  }
+  .week-nav-btn:hover { border-color: var(--orange); color: var(--orange); }
+
+  /* The picker wrap: visible display layered under a transparent <input type=week> */
+  .week-picker-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+  }
+  .week-display-box {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 5px 12px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+    user-select: none;
+  }
+  .week-picker-wrap:hover .week-display-box { border-color: var(--orange); }
+  .week-code {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text);
+  }
+  .week-dates {
+    font-size: 12px;
+    color: var(--muted);
+  }
+  /* data type badge */
+  .dtype-badge {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.7px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+  .dtype-badge.predicted {
+    background: var(--orange-lt);
+    color: var(--orange);
+    border: 1px solid #f5c896;
+  }
+  .dtype-badge.actual {
+    background: var(--green-lt);
+    color: var(--green);
+    border: 1px solid #86efac;
+  }
+  .dtype-badge.nodata {
+    background: var(--bg3);
+    color: var(--muted2);
+    border: 1px solid var(--border);
+  }
+  .week-edit-hint {
+    font-size: 10px;
+    color: var(--muted2);
+    margin-left: 2px;
+  }
+  /* transparent date input sits on top */
+  .week-input-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+    z-index: 5;
+  }
+  .week-code { /* already defined */ }
+
+  /* ── TABS ────────────────────────────────────────────── */
+  nav {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px;
+    display: flex;
+    gap: 0;
+  }
+
+  .tab {
+    padding: 12px 20px;
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 500;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: all 0.15s;
+    user-select: none;
+    white-space: nowrap;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--orange); border-bottom-color: var(--orange); }
+
+  /* ── MAIN ────────────────────────────────────────────── */
+  main { padding: 24px 32px; max-width: 1400px; margin: 0 auto; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* ── METRICS ─────────────────────────────────────────── */
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .metric-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    box-shadow: var(--shadow);
+  }
+  .metric-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 6px;
+  }
+  .metric-value {
+    font-family: var(--mono);
+    font-size: 24px;
+    font-weight: 500;
+    color: var(--text);
+  }
+  .metric-value.good  { color: var(--green); }
+  .metric-value.warn  { color: var(--orange); }
+  .metric-sub {
+    font-size: 11px;
+    color: var(--muted2);
+    margin-top: 3px;
+  }
+
+  /* ── TOOLBAR ─────────────────────────────────────────── */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+
+  .search-input {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    padding: 8px 12px;
+    font-family: var(--sans);
+    font-size: 13px;
+    width: 260px;
+    outline: none;
+    transition: border-color 0.15s;
+    box-shadow: var(--shadow);
+  }
+  .search-input:focus { border-color: var(--orange); }
+  .search-input::placeholder { color: var(--muted2); }
+
+  .total-pill {
+    background: var(--orange-lt);
+    border: 1px solid #f5c896;
+    border-radius: var(--radius);
+    padding: 7px 14px;
+    font-size: 12px;
+    color: var(--orange);
+    font-weight: 600;
+  }
+
+  .btn {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--muted);
+    padding: 8px 14px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s;
+    box-shadow: var(--shadow);
+  }
+  .btn:hover { border-color: var(--orange); color: var(--orange); }
+
+  .btn-primary {
+    background: var(--orange);
+    border-color: var(--orange);
+    color: #fff;
+    font-weight: 600;
+    padding: 9px 20px;
+    font-size: 13px;
+  }
+  .btn-primary:hover { background: #c4671a; border-color: #c4671a; color: #fff; }
+  .btn-primary:disabled { background: var(--border2); border-color: var(--border2); color: var(--muted); cursor: not-allowed; }
+
+  /* ── DRIVER VIEW ─────────────────────────────────────── */
+  .route-block { margin-bottom: 16px; }
+
+  .route-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--orange);
+    border-radius: var(--radius) var(--radius) 0 0;
+    cursor: pointer;
+    user-select: none;
+    box-shadow: var(--shadow);
+  }
+  .route-name {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--text);
+  }
+  .route-meta { color: var(--muted); font-size: 12px; }
+  .route-toggle { margin-left: auto; color: var(--muted2); font-size: 14px; transition: transform 0.2s; }
+  .route-header.collapsed .route-toggle { transform: rotate(-90deg); }
+
+  .store-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 var(--radius) var(--radius);
+    overflow: hidden;
+  }
+
+  .store-card { background: var(--bg2); }
+
+  .store-name {
+    padding: 9px 14px 7px;
+    font-weight: 600;
+    font-size: 12px;
+    color: var(--text);
+    background: var(--bg3);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .day-rows { padding: 4px 0; }
+
+  .day-row {
+    display: grid;
+    grid-template-columns: 72px 40px 72px 1fr;
+    align-items: start;
+    padding: 5px 14px;
+    gap: 8px;
+    transition: background 0.1s;
+  }
+  .day-row:hover { background: var(--orange-lt); }
+
+  .day-name {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--muted);
+    padding-top: 1px;
+  }
+  .day-qty {
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+    text-align: right;
+  }
+  .day-qty.high { color: var(--orange); font-weight: 600; }
+  .day-range {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted2);
+    padding-top: 2px;
+    white-space: nowrap;
+  }
+  .day-products {
+    font-size: 10.5px;
+    color: var(--muted);
+    line-height: 1.55;
+  }
+
+  /* ── KITCHEN VIEW ────────────────────────────────────── */
+  .day-section { margin-bottom: 20px; }
+
+  .day-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    padding: 10px 16px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--blue);
+    border-radius: var(--radius) var(--radius) 0 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: var(--shadow);
+  }
+  .day-title-sub {
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 400;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 var(--radius) var(--radius);
+    overflow: hidden;
+    background: var(--bg2);
+    box-shadow: var(--shadow);
+  }
+
+  thead th {
+    background: var(--bg3);
+    padding: 8px 14px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+  }
+
+  tbody tr { border-bottom: 1px solid var(--border); }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--bg3); }
+
+  tbody td { padding: 9px 14px; font-size: 13px; }
+
+  .td-type    { color: var(--muted); font-size: 12px; }
+  .td-product { color: var(--text); font-weight: 500; }
+  .td-qty {
+    font-family: var(--mono);
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--blue);
+    text-align: right;
+  }
+  .td-range { color: var(--muted2); font-family: var(--mono); font-size: 11px; }
+  .td-stores { color: var(--muted); font-size: 12px; text-align: center; }
+
+  /* ── PIPELINE ────────────────────────────────────────── */
+  .run-section {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+
+  .status-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--muted2);
+    flex-shrink: 0;
+  }
+  .status-dot.running { background: var(--orange); animation: pulse 1s infinite; }
+  .status-dot.done    { background: var(--green); }
+  .status-dot.error   { background: var(--red); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* ── PASSWORD ─────────────────────────────────────────── */
+  .pw-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .pw-input {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    padding: 7px 11px;
+    font-family: var(--mono);
+    font-size: 12px;
+    width: 200px;
+    outline: none;
+    transition: border-color 0.15s;
+    box-shadow: var(--shadow);
+  }
+  .pw-input:focus { border-color: var(--orange); }
+  .pw-label { font-size: 12px; color: var(--muted); }
+
+  /* ── UPLOAD ───────────────────────────────────────────── */
+  .upload-section {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow);
+  }
+  .upload-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 10px;
+  }
+  .upload-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .file-input-wrap {
+    position: relative;
+  }
+  .file-input-wrap input[type=file] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+  }
+  .file-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    padding: 7px 13px;
+    font-size: 12px;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .file-label:hover { border-color: var(--orange); color: var(--orange); }
+  .file-chosen {
+    font-size: 12px;
+    color: var(--muted2);
+    font-family: var(--mono);
+    max-width: 260px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .upload-msg {
+    font-size: 12px;
+    padding: 4px 0;
+    min-height: 20px;
+  }
+  .upload-msg.ok  { color: var(--green); }
+  .upload-msg.err { color: var(--red); }
+
+  .pipeline-info {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.8;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow);
+  }
+  .pipeline-info code {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text);
+  }
+
+  .log-box {
+    background: #1e2128;
+    border: 1px solid #2e3340;
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    height: 260px;
+    overflow-y: auto;
+    font-family: var(--mono);
+    font-size: 11px;
+    line-height: 1.7;
+    color: #8da0a8;
+    display: none;
+  }
+  .log-box.visible { display: block; }
+  .log-box .ok   { color: #4ade80; }
+  .log-box .err  { color: #f87171; }
+  .log-box .head { color: #fb923c; }
+
+  /* ── DIAGNOSTICS ─────────────────────────────────────── */
+  .diag-wrap {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    box-shadow: var(--shadow);
+  }
+  .diag-img { width: 100%; display: block; border-radius: 4px; }
+
+  /* ── EMPTY STATE ─────────────────────────────────────── */
+  .empty {
+    text-align: center;
+    padding: 72px 20px;
+    color: var(--muted);
+  }
+  .empty-icon { font-size: 40px; margin-bottom: 16px; }
+  .empty h2 { font-size: 18px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+  .empty p  { font-size: 13px; line-height: 1.7; max-width: 380px; margin: 0 auto 20px; }
+
+  /* ── SCROLLBAR ───────────────────────────────────────── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg3); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted2); }
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ──────────────────────────────────────────────── -->
+<header>
+  <div class="logo">Eataway <span>/ Prognos</span></div>
+
+  {% if init_week %}
+  <div class="week-nav">
+    <button class="week-nav-btn" onclick="stepWeek(-1)" title="Föregående vecka">&#8249;</button>
+
+    <div class="week-picker-wrap">
+      <!-- Visible display -->
+      <div class="week-display-box">
+        <span class="week-code"  id="hdr-week">{{ init_week }}</span>
+        <span class="week-dates" id="hdr-dates">{{ date_range }}</span>
+        <span class="dtype-badge predicted" id="hdr-badge">PROGNOS</span>
+        <span class="week-edit-hint">✏</span>
+      </div>
+      <!-- Transparent week picker on top -->
+      <input type="week"
+             id="week-input"
+             class="week-input-overlay"
+             value="{{ init_week }}"
+             min="{{ min_week }}"
+             onchange="onWeekInputChange(this.value)"
+             title="Välj vecka">
+    </div>
+
+    <button class="week-nav-btn" onclick="stepWeek(1)" title="Nästa vecka">&#8250;</button>
+  </div>
+  {% endif %}
+</header>
+
+<!-- ── NAV ─────────────────────────────────────────────────── -->
+<nav>
+  <div class="tab active" onclick="switchTab('driver',this)">🚚 Chaufförsvy</div>
+  <div class="tab" onclick="switchTab('kitchen',this)">🍳 Köksvy</div>
+  <div class="tab" onclick="switchTab('pipeline',this)">⚙ Kör Pipeline</div>
+  <div class="tab" onclick="switchTab('diagnostics',this)">📊 Diagnostik</div>
+</nav>
+
+<main>
+
+  <!-- ── METRICS ── -->
+  {% if metrics %}
+  <div class="metrics">
+    <div class="metric-card">
+      <div class="metric-label">MAE</div>
+      <div class="metric-value">{{ "%.3f"|format(metrics.mae) }}</div>
+      <div class="metric-sub">genomsnittligt fel per enhet</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Bias</div>
+      <div class="metric-value {% if metrics.bias|abs < 0.1 %}good{% else %}warn{% endif %}">
+        {{ "%+.3f"|format(metrics.bias) }}
+      </div>
+      <div class="metric-sub">systematisk avvikelse</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">±1 träff</div>
+      <div class="metric-value {% if metrics.hit1 > 0.6 %}good{% endif %}">
+        {{ "%.0f"|format(metrics.hit1 * 100) }}%
+      </div>
+      <div class="metric-sub">inom 1 enhet korrekt</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">±2 träff</div>
+      <div class="metric-value {% if metrics.hit2 > 0.75 %}good{% endif %}">
+        {{ "%.0f"|format(metrics.hit2 * 100) }}%
+      </div>
+      <div class="metric-sub">inom 2 enheter korrekt</div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ════════════════════════════════════════════════════ -->
+  <!-- DRIVER VIEW                                         -->
+  <!-- ════════════════════════════════════════════════════ -->
+  <div id="panel-driver" class="panel active">
+    {% if not has_output %}
+    <div class="empty">
+      <div class="empty-icon">🚚</div>
+      <h2>Inga resultat ännu</h2>
+      <p>Gå till "Kör Pipeline" och klicka på knappen för att generera veckoprognoser.</p>
+    </div>
+    {% else %}
+    <div class="toolbar">
+      <input class="search-input" id="driver-search" type="text"
+             placeholder="Sök butik eller rutt..." oninput="filterDriver()">
+      <div class="total-pill">Totalt: <strong id="driver-total">—</strong> leveranser</div>
+      <a class="btn" href="/api/download/driver" download style="margin-left:auto">↓ Ladda ner CSV</a>
+    </div>
+    <div id="driver-container">Laddar...</div>
+    {% endif %}
+  </div>
+
+  <!-- ════════════════════════════════════════════════════ -->
+  <!-- KITCHEN VIEW                                        -->
+  <!-- ════════════════════════════════════════════════════ -->
+  <div id="panel-kitchen" class="panel">
+    {% if not has_output %}
+    <div class="empty">
+      <div class="empty-icon">🍳</div>
+      <h2>Inga resultat ännu</h2>
+      <p>Kör pipeline för att se köksvy.</p>
+    </div>
+    {% else %}
+    <div class="toolbar">
+      <input class="search-input" id="kitchen-search" type="text"
+             placeholder="Sök produkt eller typ..." oninput="filterKitchen()">
+      <a class="btn" href="/api/download/kitchen" download style="margin-left:auto">↓ Ladda ner CSV</a>
+    </div>
+    <div id="kitchen-container">Laddar...</div>
+    {% endif %}
+  </div>
+
+  <!-- ════════════════════════════════════════════════════ -->
+  <!-- PIPELINE                                            -->
+  <!-- ════════════════════════════════════════════════════ -->
+  <div id="panel-pipeline" class="panel">
+
+    {% if pw_required %}
+    <div class="pw-row">
+      <span class="pw-label">🔒 Lösenord:</span>
+      <input class="pw-input" id="pw-input" type="password" placeholder="Ange lösenord...">
+    </div>
+    {% endif %}
+
+    <!-- 上传数据文件 -->
+    <div class="upload-section">
+      <div class="upload-title">📂 Uppdatera data (1year.csv)</div>
+      <div class="upload-row">
+        <div class="file-input-wrap">
+          <div class="file-label">📁 Välj CSV-fil</div>
+          <input type="file" id="upload-input" accept=".csv" onchange="onFileChosen(this)">
+        </div>
+        <span class="file-chosen" id="file-chosen">Ingen fil vald</span>
+        <button class="btn btn-primary" id="upload-btn" onclick="uploadFile()" style="padding:7px 16px;font-size:12px">
+          ↑ Ladda upp
+        </button>
+      </div>
+      <div class="upload-msg" id="upload-msg"></div>
+    </div>
+
+    <!-- 运行训练 -->
+    <div class="run-section">
+      <button class="btn btn-primary" id="run-btn" onclick="runPipeline()">
+        <span id="run-icon">▶</span>
+        <span id="run-label">Kör Veckopipeline</span>
+      </button>
+      <div class="status-row">
+        <span class="status-dot" id="status-dot"></span>
+        <span id="status-text" style="font-size:12px;color:var(--muted)">Redo</span>
+      </div>
+    </div>
+    <div class="pipeline-info">
+      Steg 1: <code>feature.py</code> — datarensning &amp; feature engineering<br>
+      Steg 2: <code>eataway_train_v7.py</code> — modellträning &amp; prognos<br>
+      Output: <code>output_v7/</code>
+    </div>
+    <div class="log-box" id="log-box"></div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════ -->
+  <!-- DIAGNOSTICS                                         -->
+  <!-- ════════════════════════════════════════════════════ -->
+  <div id="panel-diagnostics" class="panel">
+    {% if not has_output %}
+    <div class="empty">
+      <div class="empty-icon">📊</div>
+      <h2>Inga diagnostik</h2>
+      <p>Kör pipeline för att generera diagnostikdiagram.</p>
+    </div>
+    {% else %}
+    <div class="diag-wrap">
+      <img class="diag-img" src="/api/diagnostics" id="diag-img" alt="Diagnostik">
+    </div>
+    {% endif %}
+  </div>
+
+</main>
+
+<script>
+// ── STATE ─────────────────────────────────────────────────────
+let driverData   = null;
+let kitchenData  = null;
+let pollTimer    = null;
+let selectedWeek = "{{ init_week }}";   // currently displayed week
+
+// ── WEEK NAVIGATOR ────────────────────────────────────────────
+function onWeekInputChange(val) {
+  if (!val) return;
+  selectedWeek = val;
+  document.getElementById('hdr-week').textContent = val;
+  driverData  = null;
+  kitchenData = null;
+  reloadActiveTab();
+}
+
+function stepWeek(delta) {
+  // Parse year-week, step by delta weeks using a Monday date
+  const m = selectedWeek.match(/^(\d{4})-W(\d{2})$/);
+  if (!m) return;
+  const year = parseInt(m[1]), week = parseInt(m[2]);
+  // Build a Monday of that week
+  const jan4 = new Date(year, 0, 4);           // Jan 4 is always in week 1
+  const w1Mon = new Date(jan4);
+  w1Mon.setDate(jan4.getDate() - ((jan4.getDay() + 6) % 7));  // Monday of week 1
+  const targetMon = new Date(w1Mon);
+  targetMon.setDate(w1Mon.getDate() + (week - 1) * 7 + delta * 7);
+  // Get ISO year/week of targetMon
+  const thu = new Date(targetMon);
+  thu.setDate(targetMon.getDate() + 3);
+  const isoYear = thu.getFullYear();
+  // ISO week number
+  const w1 = new Date(isoYear, 0, 4);
+  const w1m = new Date(w1);
+  w1m.setDate(w1.getDate() - ((w1.getDay() + 6) % 7));
+  const isoWeek = Math.round((targetMon - w1m) / 604800000) + 1;
+  const newVal = `${isoYear}-W${String(isoWeek).padStart(2, '0')}`;
+  document.getElementById('week-input').value = newVal;
+  onWeekInputChange(newVal);
+}
+
+function reloadActiveTab() {
+  const active = document.querySelector('.tab.active');
+  if (!active) return;
+  const m = active.getAttribute('onclick').match(/switchTab\('(\w+)'/);
+  if (!m) return;
+  const tab = m[1];
+  if (tab === 'driver')      loadDriver();
+  else if (tab === 'kitchen') loadKitchen();
+}
+
+function updateHeader(yw, dateRange, type) {
+  const weekEl  = document.getElementById('hdr-week');
+  const datesEl = document.getElementById('hdr-dates');
+  const badge   = document.getElementById('hdr-badge');
+  if (weekEl  && yw)        weekEl.textContent  = yw;
+  if (datesEl && dateRange) datesEl.textContent = dateRange;
+  if (badge && type) {
+    badge.className = 'dtype-badge ' + type;
+    if (type === 'predicted') badge.textContent = '📈 PROGNOS';
+    else if (type === 'actual') badge.textContent = '✓ FAKTISK';
+    else badge.textContent = 'INGEN DATA';
+  }
+}
+
+// ── TABS ──────────────────────────────────────────────────────
+function switchTab(name, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('panel-' + name).classList.add('active');
+  if (name === 'driver')      loadDriver();
+  if (name === 'kitchen')     loadKitchen();
+  if (name === 'diagnostics') {
+    const img = document.getElementById('diag-img');
+    if (img) img.src = '/api/diagnostics?' + Date.now();
+  }
+}
+
+// ── DRIVER VIEW ───────────────────────────────────────────────
+async function loadDriver() {
+  const container = document.getElementById('driver-container');
+  if (!container) return;
+  container.innerHTML = '<div style="padding:48px;text-align:center;color:var(--muted)">Laddar...</div>';
+  try {
+    const res  = await fetch('/api/driver?week=' + encodeURIComponent(selectedWeek));
+    const json = await res.json();
+    driverData = json.data;
+    updateHeader(json.year_week, json.date_range, json.type);
+    if (json.type === 'nodata' || !Object.keys(json.data).length) {
+      container.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><h2>Ingen data</h2><p>Ingen data hittades för ' + esc(selectedWeek) + '.</p></div>';
+    } else {
+      renderDriver(driverData);
+    }
+  } catch(e) {
+    container.innerHTML = '<div class="empty"><div class="empty-icon">⚠</div><h2>Fel</h2><p>' + esc(String(e)) + '</p></div>';
+  }
+}
+
+function renderDriver(data) {
+  const container = document.getElementById('driver-container');
+  if (!container) return;
+  let total = 0, html = '';
+
+  for (const [route, stores] of Object.entries(data)) {
+    const storeCount = Object.keys(stores).length;
+    let storeHtml = '';
+
+    for (const [store, days] of Object.entries(stores)) {
+      let dayHtml = '';
+      for (const d of days) {
+        total += d.qty;
+        const highCls = d.qty >= 10 ? ' high' : '';
+        const prods = d.products
+          ? d.products.split(' | ').map(p => `<div>${esc(p)}</div>`).join('')
+          : '';
+        dayHtml += `
+          <div class="day-row">
+            <div class="day-name">${esc(d.day_label)}</div>
+            <div class="day-qty${highCls}">${d.qty}</div>
+            <div class="day-range">${esc(d.range)}</div>
+            <div class="day-products">${prods}</div>
+          </div>`;
+      }
+      storeHtml += `
+        <div class="store-card">
+          <div class="store-name">${esc(store)}</div>
+          <div class="day-rows">${dayHtml}</div>
+        </div>`;
+    }
+
+    html += `
+      <div class="route-block" data-route="${esc(route.toLowerCase())}">
+        <div class="route-header" onclick="toggleRoute(this)">
+          <div class="route-name">${esc(route)}</div>
+          <div class="route-meta">${storeCount} butiker</div>
+          <div class="route-toggle">▾</div>
+        </div>
+        <div class="store-grid route-body">${storeHtml}</div>
+      </div>`;
+  }
+
+  container.innerHTML = html;
+  const el = document.getElementById('driver-total');
+  if (el) el.textContent = total.toLocaleString('sv-SE');
+  // re-apply filter
+  const q = document.getElementById('driver-search');
+  if (q && q.value) filterDriver();
+}
+
+function toggleRoute(header) {
+  header.classList.toggle('collapsed');
+  const body = header.nextElementSibling;
+  body.style.display = header.classList.contains('collapsed') ? 'none' : 'grid';
+}
+
+function filterDriver() {
+  const q = document.getElementById('driver-search').value.toLowerCase();
+  document.querySelectorAll('.route-block').forEach(block => {
+    const route  = (block.dataset.route || '');
+    const stores = Array.from(block.querySelectorAll('.store-name')).map(e => e.textContent.toLowerCase());
+    block.style.display = (route.includes(q) || stores.some(s => s.includes(q))) ? '' : 'none';
+  });
+}
+
+// ── KITCHEN VIEW ──────────────────────────────────────────────
+async function loadKitchen() {
+  const container = document.getElementById('kitchen-container');
+  if (!container) return;
+  container.innerHTML = '<div style="padding:48px;text-align:center;color:var(--muted)">Laddar...</div>';
+  try {
+    const res  = await fetch('/api/kitchen?week=' + encodeURIComponent(selectedWeek));
+    const json = await res.json();
+    kitchenData = json.data;
+    updateHeader(json.year_week, json.date_range, json.type);
+    if (json.type === 'nodata' || !Object.keys(json.data).length) {
+      container.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><h2>Ingen data</h2><p>Ingen data hittades för ' + esc(selectedWeek) + '.</p></div>';
+    } else {
+      renderKitchen(kitchenData);
+    }
+  } catch(e) {
+    container.innerHTML = '<div class="empty"><div class="empty-icon">⚠</div><h2>Fel</h2><p>' + esc(String(e)) + '</p></div>';
+  }
+}
+
+function renderKitchen(data) {
+  const container = document.getElementById('kitchen-container');
+  if (!container) return;
+  const dayOrder = {Sunday:0,Monday:1,Tuesday:2,Wednesday:3,Thursday:4};
+  const days = Object.keys(data).sort((a,b) => (dayOrder[a]??9) - (dayOrder[b]??9));
+  let html = '';
+
+  for (const day of days) {
+    const obj      = data[day];
+    const rows     = obj.rows;
+    const label    = obj.label;
+    const dayTotal = rows.reduce((s,r) => s+r.qty, 0);
+
+    const rowHtml = rows.map(r => `
+      <tr>
+        <td class="td-type">${esc(r.type)}</td>
+        <td class="td-product">${esc(r.product)}</td>
+        <td class="td-qty">${r.qty}</td>
+        <td class="td-range">${esc(r.range)}</td>
+        <td class="td-stores">${r.stores}</td>
+      </tr>`).join('');
+
+    html += `
+      <div class="day-section" data-day="${esc(day.toLowerCase())}">
+        <div class="day-title">
+          ${esc(label)}
+          <span class="day-title-sub">— ${dayTotal} enheter totalt</span>
+        </div>
+        <table>
+          <thead><tr>
+            <th>Typ</th><th>Produkt</th>
+            <th style="text-align:right">Antal</th>
+            <th>Intervall</th>
+            <th style="text-align:center">Butiker</th>
+          </tr></thead>
+          <tbody>${rowHtml}</tbody>
+        </table>
+      </div>`;
+  }
+  container.innerHTML = html;
+  // re-apply filter
+  const q = document.getElementById('kitchen-search');
+  if (q && q.value) filterKitchen();
+}
+
+function filterKitchen() {
+  const q = document.getElementById('kitchen-search').value.toLowerCase();
+  document.querySelectorAll('.day-section').forEach(sec => {
+    let any = false;
+    sec.querySelectorAll('tbody tr').forEach(row => {
+      const vis = row.textContent.toLowerCase().includes(q);
+      row.style.display = vis ? '' : 'none';
+      if (vis) any = true;
+    });
+    sec.style.display = any ? '' : 'none';
+  });
+}
+
+// ── PASSWORD ───────────────────────────────────────────────────
+function getPassword() {
+  const el = document.getElementById('pw-input');
+  return el ? el.value : '';
+}
+
+// ── UPLOAD ────────────────────────────────────────────────────
+function onFileChosen(input) {
+  const el = document.getElementById('file-chosen');
+  el.textContent = input.files[0] ? input.files[0].name : 'Ingen fil vald';
+  document.getElementById('upload-msg').textContent = '';
+  document.getElementById('upload-msg').className = 'upload-msg';
+}
+
+async function uploadFile() {
+  const input = document.getElementById('upload-input');
+  const msgEl = document.getElementById('upload-msg');
+  const btn   = document.getElementById('upload-btn');
+  if (!input.files[0]) {
+    msgEl.className = 'upload-msg err';
+    msgEl.textContent = '请先选择 CSV 文件';
+    return;
+  }
+  btn.disabled = true;
+  btn.textContent = '上传中...';
+  msgEl.className = 'upload-msg';
+  msgEl.textContent = '';
+  const form = new FormData();
+  form.append('file', input.files[0]);
+  form.append('pw', getPassword());
+  try {
+    const res  = await fetch('/api/upload', {method:'POST', body: form});
+    const json = await res.json();
+    msgEl.className = 'upload-msg ' + (json.ok ? 'ok' : 'err');
+    msgEl.textContent = json.ok ? '✓ ' + json.msg : '✗ ' + json.msg;
+  } catch(e) {
+    msgEl.className = 'upload-msg err';
+    msgEl.textContent = '✗ 上传失败: ' + e;
+  }
+  btn.disabled = false;
+  btn.textContent = '↑ Ladda upp';
+}
+
+// ── PIPELINE ──────────────────────────────────────────────────
+async function runPipeline() {
+  const btn = document.getElementById('run-btn');
+  btn.disabled = true;
+  document.getElementById('run-label').textContent = 'Körs...';
+  document.getElementById('run-icon').textContent  = '⟳';
+  const logBox = document.getElementById('log-box');
+  logBox.innerHTML = '';
+  logBox.classList.add('visible');
+  setStatus('running', 'Körs...');
+  const res = await fetch('/api/run', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json', 'X-App-Password': getPassword()},
+    body: JSON.stringify({pw: getPassword()}),
+  });
+  const json = await res.json();
+  if (!json.ok) {
+    setStatus('error', json.msg || '失败');
+    btn.disabled = false;
+    document.getElementById('run-label').textContent = 'Kör igen';
+    document.getElementById('run-icon').textContent  = '▶';
+    return;
+  }
+  pollTimer = setInterval(pollStatus, 800);
+}
+
+async function pollStatus() {
+  const data = await (await fetch('/api/status')).json();
+  const logBox = document.getElementById('log-box');
+  logBox.innerHTML = data.log.map(line => {
+    let cls = '';
+    if (line.startsWith('✓') || line.includes('完成')) cls = 'ok';
+    else if (line.startsWith('✗') || /error|fail/i.test(line)) cls = 'err';
+    else if (line.startsWith('▶') || line.startsWith('=')) cls = 'head';
+    return `<div class="${cls}">${esc(line)}</div>`;
+  }).join('');
+  logBox.scrollTop = logBox.scrollHeight;
+
+  if (!data.running) {
+    clearInterval(pollTimer);
+    const btn = document.getElementById('run-btn');
+    btn.disabled = false;
+    document.getElementById('run-label').textContent = 'Kör igen';
+    document.getElementById('run-icon').textContent  = '▶';
+    if (data.error) {
+      setStatus('error', 'Fel — se loggen ovan');
+    } else {
+      setStatus('done', 'Klart! Laddar om...');
+      setTimeout(() => location.reload(), 1800);
+    }
+  }
+}
+
+function setStatus(state, text) {
+  document.getElementById('status-dot').className  = 'status-dot ' + state;
+  document.getElementById('status-text').textContent = text;
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── INIT ──────────────────────────────────────────────────────
+if (document.getElementById('driver-container')) loadDriver();
+</script>
+</body>
+</html>

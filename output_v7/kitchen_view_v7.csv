@@ -1,0 +1,261 @@
+﻿Day,Type,Product,Qty,Range,Stores
+Sunday,Fralla,Ost & Skinka,376.0,301~476,122
+Sunday,Pastasallad,Kyckling mangocurry,351.0,279~460,131
+Sunday,Hönökaka,Ost & Skinka,305.0,252~407,108
+Sunday,Pastasallad,Kyckling & Salladsost,280.0,216~374,125
+Sunday,Hönökaka,Ost,276.0,233~383,115
+Sunday,Fralla,Ost,272.0,217~367,123
+Sunday,Wraps,Kyckling Curry,247.0,193~347,129
+Sunday,Hönökaka,Ost & Salami,224.0,181~302,85
+Sunday,Wraps,Caesar Kyckling,222.0,180~329,126
+Sunday,Wraps,Kyckling Bacon,214.0,173~311,121
+Sunday,Baguette,Salami & Brieost,187.0,152~280,119
+Sunday,Wraps,Sweet Chili,187.0,153~281,115
+Sunday,XL Frallor,Ost & Skinka,178.0,147~254,85
+Sunday,Baguette,Skagen,169.0,132~256,117
+Sunday,Pastasallad,Räkor,168.0,135~258,117
+Sunday,Sandwich,Räkor,149.0,119~234,116
+Sunday,Sandwich,Clubsandwich,136.0,112~223,111
+Sunday,XL Frallor,Grovfralla Kalkon & Färskost,131.0,115~210,85
+Sunday,Sandwich,Kyckling Curry,127.0,110~214,109
+Sunday,Baguette,Ost & Skinka,111.0,94~191,93
+Sunday,XL Frallor,Ost,101.0,84~165,78
+Sunday,Pastasallad,Bacon & Kyckling,96.0,82~164,80
+Sunday,Pastasallad,Ost & Skinka,94.0,78~154,75
+Sunday,Baguette,Kyckling Curry,92.0,80~172,99
+Sunday,Sandwich,Bacon & Äggröra,85.0,71~141,73
+Sunday,Sandwich,Kyckling Pestoröra,71.0,66~143,80
+Sunday,Pastasallad,Kyckling kebab,61.0,52~110,60
+Sunday,Sandwich,Ägg & Avocadokräm,55.0,49~113,77
+Sunday,Grönsallad,Kyckling,49.0,43~87,44
+Sunday,Baguette,Kyckling Sweet Chili,47.0,43~98,58
+Sunday,Grönsallad,Caesarsallad,46.0,41~84,47
+Sunday,Wraps,Wrap Curry Oumph!,31.0,26~52,26
+Sunday,Pastasallad,Falafel,28.0,24~54,33
+Sunday,Wraps,Kycklingsallad Olivie,28.0,24~47,27
+Sunday,Glutenfri Frallor,Glutenfri Pumpafralla Kalkon & Färskost(endast söndagsbeställning),20.0,18~42,24
+Sunday,Räkmacka Liten,Räkmacka liten,17.0,16~30,13
+Sunday,Glutenfri Frallor,Glutenfri Ost & Skinka(endast söndagsbeställning),14.0,13~39,24
+Sunday,Varmrätt,Cevapcici med bulgur,8.0,8~35,41
+Sunday,Glutenfri Frallor,Glutenfri Ost(endast söndagsbeställning),7.0,7~21,17
+Sunday,Baguette,Kycklingsallad Olivie,6.0,5~12,10
+Sunday,Varmrätt,Teriyakikycklingfile med basmatiris,6.0,6~29,33
+Sunday,Räkstubbe,Räkstubbe,5.0,4~10,6
+Sunday,Varmrätt,Teriyakibiff med ris,4.0,4~27,34
+Sunday,Blandstubbe,Blandstubbe,3.0,3~6,3
+Sunday,Varmrätt,Kyckling-och böngryta,3.0,3~17,22
+Sunday,Varmrätt,Kycklingspett med ris,3.0,3~27,36
+Sunday,Stubbe,Ost & Skinkstubbe,2.0,2~3,1
+Sunday,Varmrätt,Kycklingkebab med bulgur,1.0,1~4,13
+Sunday,Varmrätt,Kycklingpestosallad,1.0,1~2,12
+Sunday,Varmrätt,Falafel med bulgur,0.0,0~3,8
+Sunday,Varmrätt,Pannbiff med Basmatiris,0.0,0~9,19
+Sunday,Varmrätt,Tacobolognese med fullkornspasta,0.0,0~4,12
+Monday,Fralla,Ost & Skinka,123.0,87~156,122
+Monday,Pastasallad,Kyckling mangocurry,113.0,83~146,131
+Monday,Hönökaka,Ost & Skinka,95.0,71~131,108
+Monday,Fralla,Ost,90.0,47~122,123
+Monday,Pastasallad,Kyckling & Salladsost,89.0,59~121,125
+Monday,Hönökaka,Ost,86.0,50~119,115
+Monday,Wraps,Kyckling Curry,72.0,43~109,129
+Monday,Hönökaka,Ost & Salami,71.0,46~90,85
+Monday,Wraps,Caesar Kyckling,65.0,33~99,126
+Monday,Wraps,Kyckling Bacon,62.0,32~98,121
+Monday,Wraps,Sweet Chili,54.0,23~89,115
+Monday,Baguette,Salami & Brieost,53.0,21~82,119
+Monday,XL Frallor,Ost & Skinka,51.0,31~75,85
+Monday,Baguette,Skagen,47.0,21~81,117
+Monday,Pastasallad,Räkor,46.0,22~74,117
+Monday,Sandwich,Räkor,38.0,15~67,116
+Monday,XL Frallor,Grovfralla Kalkon & Färskost,33.0,19~49,85
+Monday,Sandwich,Clubsandwich,32.0,13~73,111
+Monday,Sandwich,Kyckling Curry,26.0,11~58,109
+Monday,XL Frallor,Ost,26.0,12~46,78
+Monday,Baguette,Ost & Skinka,23.0,15~51,93
+Monday,Pastasallad,Ost & Skinka,23.0,9~42,75
+Monday,Pastasallad,Bacon & Kyckling,22.0,9~43,80
+Monday,Sandwich,Bacon & Äggröra,21.0,7~34,73
+Monday,Baguette,Kyckling Curry,17.0,5~44,99
+Monday,Pastasallad,Kyckling kebab,14.0,4~23,60
+Monday,Sandwich,Kyckling Pestoröra,13.0,6~25,80
+Monday,Sandwich,Ägg & Avocadokräm,9.0,2~18,77
+Monday,Grönsallad,Kyckling,8.0,3~19,44
+Monday,Wraps,Wrap Curry Oumph!,8.0,0~19,26
+Monday,Baguette,Kyckling Sweet Chili,7.0,2~19,58
+Monday,Grönsallad,Caesarsallad,7.0,1~25,47
+Monday,Wraps,Kycklingsallad Olivie,7.0,3~14,27
+Monday,Pastasallad,Falafel,5.0,1~13,33
+Monday,Glutenfri Frallor,Glutenfri Pumpafralla Kalkon & Färskost(endast söndagsbeställning),3.0,2~5,24
+Monday,Räkmacka Liten,Räkmacka liten,3.0,3~7,13
+Monday,Glutenfri Frallor,Glutenfri Ost & Skinka(endast söndagsbeställning),2.0,2~4,24
+Monday,Baguette,Kycklingsallad Olivie,1.0,0~4,10
+Monday,Blandstubbe,Blandstubbe,1.0,1~1,3
+Monday,Räkstubbe,Räkstubbe,1.0,1~2,6
+Monday,Stubbe,Ost & Skinkstubbe,1.0,0~1,1
+Monday,Glutenfri Frallor,Glutenfri Ost(endast söndagsbeställning),0.0,0~1,17
+Monday,Varmrätt,Cevapcici med bulgur,0.0,0~0,41
+Monday,Varmrätt,Falafel med bulgur,0.0,0~0,8
+Monday,Varmrätt,Kyckling-och böngryta,0.0,0~0,22
+Monday,Varmrätt,Kycklingkebab med bulgur,0.0,0~0,13
+Monday,Varmrätt,Kycklingpestosallad,0.0,0~0,12
+Monday,Varmrätt,Kycklingspett med ris,0.0,0~0,36
+Monday,Varmrätt,Pannbiff med Basmatiris,0.0,0~0,19
+Monday,Varmrätt,Tacobolognese med fullkornspasta,0.0,0~0,12
+Monday,Varmrätt,Teriyakibiff med ris,0.0,0~2,34
+Monday,Varmrätt,Teriyakikycklingfile med basmatiris,0.0,0~1,33
+Tuesday,Fralla,Ost & Skinka,273.0,227~342,122
+Tuesday,Pastasallad,Kyckling mangocurry,252.0,207~337,131
+Tuesday,Hönökaka,Ost & Skinka,230.0,185~289,108
+Tuesday,Hönökaka,Ost,217.0,158~267,115
+Tuesday,Fralla,Ost,207.0,158~264,123
+Tuesday,Pastasallad,Kyckling & Salladsost,204.0,169~266,125
+Tuesday,Wraps,Kyckling Curry,186.0,143~242,129
+Tuesday,Wraps,Caesar Kyckling,175.0,125~225,126
+Tuesday,Hönökaka,Ost & Salami,169.0,127~214,85
+Tuesday,Wraps,Kyckling Bacon,166.0,122~214,121
+Tuesday,Wraps,Sweet Chili,147.0,103~195,115
+Tuesday,Baguette,Salami & Brieost,145.0,101~191,119
+Tuesday,XL Frallor,Ost & Skinka,138.0,100~174,85
+Tuesday,Pastasallad,Räkor,132.0,93~175,117
+Tuesday,Baguette,Skagen,127.0,99~178,117
+Tuesday,Sandwich,Räkor,117.0,79~159,116
+Tuesday,Sandwich,Clubsandwich,110.0,85~147,111
+Tuesday,XL Frallor,Grovfralla Kalkon & Färskost,109.0,62~140,85
+Tuesday,Sandwich,Kyckling Curry,107.0,68~134,109
+Tuesday,Baguette,Ost & Skinka,90.0,65~126,93
+Tuesday,XL Frallor,Ost,82.0,54~112,78
+Tuesday,Pastasallad,Bacon & Kyckling,81.0,52~105,80
+Tuesday,Baguette,Kyckling Curry,78.0,48~112,99
+Tuesday,Pastasallad,Ost & Skinka,75.0,50~103,75
+Tuesday,Sandwich,Bacon & Äggröra,70.0,40~92,73
+Tuesday,Sandwich,Kyckling Pestoröra,64.0,30~93,80
+Tuesday,Pastasallad,Kyckling kebab,51.0,27~74,60
+Tuesday,Sandwich,Ägg & Avocadokräm,49.0,20~74,77
+Tuesday,Baguette,Kyckling Sweet Chili,43.0,21~62,58
+Tuesday,Grönsallad,Kyckling,43.0,22~52,44
+Tuesday,Grönsallad,Caesarsallad,41.0,26~50,47
+Tuesday,Wraps,Wrap Curry Oumph!,26.0,19~34,26
+Tuesday,Pastasallad,Falafel,24.0,14~35,33
+Tuesday,Wraps,Kycklingsallad Olivie,23.0,17~32,27
+Tuesday,Glutenfri Frallor,Glutenfri Pumpafralla Kalkon & Färskost(endast söndagsbeställning),18.0,6~28,24
+Tuesday,Räkmacka Liten,Räkmacka liten,15.0,9~18,13
+Tuesday,Glutenfri Frallor,Glutenfri Ost & Skinka(endast söndagsbeställning),13.0,5~29,24
+Tuesday,Varmrätt,Cevapcici med bulgur,8.0,0~27,41
+Tuesday,Glutenfri Frallor,Glutenfri Ost(endast söndagsbeställning),7.0,1~14,17
+Tuesday,Varmrätt,Teriyakikycklingfile med basmatiris,6.0,1~23,33
+Tuesday,Baguette,Kycklingsallad Olivie,5.0,4~8,10
+Tuesday,Räkstubbe,Räkstubbe,4.0,2~8,6
+Tuesday,Varmrätt,Teriyakibiff med ris,4.0,2~23,34
+Tuesday,Varmrätt,Kyckling-och böngryta,3.0,0~14,22
+Tuesday,Varmrätt,Kycklingspett med ris,3.0,0~24,36
+Tuesday,Blandstubbe,Blandstubbe,2.0,2~5,3
+Tuesday,Stubbe,Ost & Skinkstubbe,2.0,1~2,1
+Tuesday,Varmrätt,Kycklingkebab med bulgur,1.0,0~3,13
+Tuesday,Varmrätt,Kycklingpestosallad,1.0,0~1,12
+Tuesday,Varmrätt,Falafel med bulgur,0.0,0~3,8
+Tuesday,Varmrätt,Pannbiff med Basmatiris,0.0,0~9,19
+Tuesday,Varmrätt,Tacobolognese med fullkornspasta,0.0,0~4,12
+Wednesday,Fralla,Ost & Skinka,96.0,80~122,122
+Wednesday,Pastasallad,Kyckling mangocurry,91.0,79~112,131
+Wednesday,Hönökaka,Ost & Skinka,78.0,61~94,108
+Wednesday,Hönökaka,Ost,69.0,45~82,115
+Wednesday,Pastasallad,Kyckling & Salladsost,69.0,56~89,125
+Wednesday,Fralla,Ost,60.0,43~88,123
+Wednesday,Hönökaka,Ost & Salami,48.0,39~67,85
+Wednesday,Wraps,Kyckling Curry,46.0,39~71,129
+Wednesday,Wraps,Kyckling Bacon,42.0,31~62,121
+Wednesday,Wraps,Caesar Kyckling,41.0,30~65,126
+Wednesday,XL Frallor,Ost & Skinka,36.0,28~50,85
+Wednesday,Wraps,Sweet Chili,32.0,21~54,115
+Wednesday,Pastasallad,Räkor,31.0,21~46,117
+Wednesday,XL Frallor,Grovfralla Kalkon & Färskost,27.0,17~32,85
+Wednesday,Baguette,Salami & Brieost,26.0,18~52,119
+Wednesday,Baguette,Skagen,23.0,20~47,117
+Wednesday,Sandwich,Räkor,20.0,15~37,116
+Wednesday,Sandwich,Clubsandwich,18.0,13~32,111
+Wednesday,Pastasallad,Bacon & Kyckling,16.0,9~22,80
+Wednesday,Sandwich,Kyckling Curry,16.0,11~26,109
+Wednesday,XL Frallor,Ost,16.0,11~26,78
+Wednesday,Baguette,Ost & Skinka,15.0,14~22,93
+Wednesday,Pastasallad,Ost & Skinka,13.0,9~23,75
+Wednesday,Sandwich,Bacon & Äggröra,13.0,7~21,73
+Wednesday,Sandwich,Kyckling Pestoröra,10.0,5~13,80
+Wednesday,Baguette,Kyckling Curry,8.0,5~17,99
+Wednesday,Pastasallad,Kyckling kebab,7.0,4~13,60
+Wednesday,Baguette,Kyckling Sweet Chili,5.0,2~7,58
+Wednesday,Grönsallad,Kyckling,5.0,3~8,44
+Wednesday,Sandwich,Ägg & Avocadokräm,4.0,2~9,77
+Wednesday,Wraps,Kycklingsallad Olivie,4.0,3~7,27
+Wednesday,Grönsallad,Caesarsallad,3.0,1~7,47
+Wednesday,Wraps,Wrap Curry Oumph!,3.0,0~8,26
+Wednesday,Glutenfri Frallor,Glutenfri Ost & Skinka(endast söndagsbeställning),2.0,1~2,24
+Wednesday,Glutenfri Frallor,Glutenfri Pumpafralla Kalkon & Färskost(endast söndagsbeställning),2.0,1~3,24
+Wednesday,Pastasallad,Falafel,2.0,1~5,33
+Wednesday,Räkmacka Liten,Räkmacka liten,2.0,2~3,13
+Wednesday,Blandstubbe,Blandstubbe,1.0,1~1,3
+Wednesday,Räkstubbe,Räkstubbe,1.0,1~1,6
+Wednesday,Stubbe,Ost & Skinkstubbe,1.0,0~1,1
+Wednesday,Baguette,Kycklingsallad Olivie,0.0,0~1,10
+Wednesday,Glutenfri Frallor,Glutenfri Ost(endast söndagsbeställning),0.0,0~0,17
+Wednesday,Varmrätt,Cevapcici med bulgur,0.0,0~0,41
+Wednesday,Varmrätt,Falafel med bulgur,0.0,0~0,8
+Wednesday,Varmrätt,Kyckling-och böngryta,0.0,0~0,22
+Wednesday,Varmrätt,Kycklingkebab med bulgur,0.0,0~0,13
+Wednesday,Varmrätt,Kycklingpestosallad,0.0,0~0,12
+Wednesday,Varmrätt,Kycklingspett med ris,0.0,0~0,36
+Wednesday,Varmrätt,Pannbiff med Basmatiris,0.0,0~0,19
+Wednesday,Varmrätt,Tacobolognese med fullkornspasta,0.0,0~0,12
+Wednesday,Varmrätt,Teriyakibiff med ris,0.0,0~0,34
+Wednesday,Varmrätt,Teriyakikycklingfile med basmatiris,0.0,0~0,33
+Thursday,Fralla,Ost & Skinka,361.19999999999993,290~498,122
+Thursday,Pastasallad,Kyckling mangocurry,356.3999999999999,278~479,131
+Thursday,Hönökaka,Ost & Skinka,322.3999999999999,255~423,108
+Thursday,Hönökaka,Ost,284.3999999999999,246~398,115
+Thursday,Fralla,Ost,275.3999999999999,242~382,123
+Thursday,Pastasallad,Kyckling & Salladsost,273.5999999999999,218~390,125
+Thursday,Wraps,Kyckling Curry,266.5999999999999,217~362,129
+Thursday,Wraps,Caesar Kyckling,245.99999999999994,208~334,126
+Thursday,Wraps,Kyckling Bacon,235.59999999999994,194~323,121
+Thursday,Hönökaka,Ost & Salami,229.99999999999994,196~308,85
+Thursday,Wraps,Sweet Chili,218.39999999999995,184~288,115
+Thursday,Baguette,Salami & Brieost,214.79999999999995,183~291,119
+Thursday,Baguette,Skagen,209.39999999999995,165~268,117
+Thursday,XL Frallor,Ost & Skinka,191.99999999999997,160~259,85
+Thursday,Pastasallad,Räkor,188.59999999999994,155~273,117
+Thursday,Sandwich,Clubsandwich,185.59999999999994,135~235,111
+Thursday,Sandwich,Räkor,175.79999999999995,145~247,116
+Thursday,Baguette,Ost & Skinka,161.39999999999995,116~202,93
+Thursday,Sandwich,Kyckling Curry,160.79999999999995,124~228,109
+Thursday,XL Frallor,Grovfralla Kalkon & Färskost,147.99999999999997,132~216,85
+Thursday,Baguette,Kyckling Curry,142.39999999999998,109~184,99
+Thursday,XL Frallor,Ost,127.79999999999997,104~171,78
+Thursday,Pastasallad,Bacon & Kyckling,119.59999999999997,96~171,80
+Thursday,Pastasallad,Ost & Skinka,118.39999999999998,94~161,75
+Thursday,Sandwich,Kyckling Pestoröra,106.59999999999998,89~151,80
+Thursday,Sandwich,Bacon & Äggröra,96.59999999999998,87~151,73
+Thursday,Sandwich,Ägg & Avocadokräm,83.19999999999999,73~128,77
+Thursday,Pastasallad,Kyckling kebab,81.19999999999999,71~116,60
+Thursday,Baguette,Kyckling Sweet Chili,74.39999999999998,60~103,58
+Thursday,Grönsallad,Caesarsallad,66.79999999999998,49~89,47
+Thursday,Grönsallad,Kyckling,58.79999999999998,49~90,44
+Thursday,Pastasallad,Falafel,43.19999999999999,34~58,33
+Thursday,Wraps,Wrap Curry Oumph!,42.59999999999999,34~52,26
+Thursday,Wraps,Kycklingsallad Olivie,40.19999999999999,30~54,27
+Thursday,Glutenfri Frallor,Glutenfri Ost & Skinka(endast söndagsbeställning),34.8,28~38,24
+Thursday,Varmrätt,Cevapcici med bulgur,33.0,27~49,41
+Thursday,Varmrätt,Teriyakibiff med ris,32.599999999999994,23~38,34
+Thursday,Varmrätt,Kycklingspett med ris,31.799999999999997,24~39,36
+Thursday,Varmrätt,Teriyakikycklingfile med basmatiris,29.999999999999996,23~39,33
+Thursday,Glutenfri Frallor,Glutenfri Pumpafralla Kalkon & Färskost(endast söndagsbeställning),29.799999999999997,27~43,24
+Thursday,Räkmacka Liten,Räkmacka liten,24.599999999999994,17~31,13
+Thursday,Varmrätt,Kyckling-och böngryta,17.799999999999997,14~25,22
+Thursday,Glutenfri Frallor,Glutenfri Ost(endast söndagsbeställning),16.799999999999997,14~24,17
+Thursday,Varmrätt,Pannbiff med Basmatiris,12.6,9~19,19
+Thursday,Baguette,Kycklingsallad Olivie,11.799999999999997,8~15,10
+Thursday,Räkstubbe,Räkstubbe,8.6,7~10,6
+Thursday,Blandstubbe,Blandstubbe,7.0,4~7,3
+Thursday,Varmrätt,Tacobolognese med fullkornspasta,5.6,4~12,12
+Thursday,Varmrätt,Falafel med bulgur,4.199999999999999,3~8,8
+Thursday,Varmrätt,Kycklingkebab med bulgur,3.5999999999999996,3~14,13
+Thursday,Stubbe,Ost & Skinkstubbe,1.0,2~3,1
+Thursday,Varmrätt,Kycklingpestosallad,0.7999999999999998,1~13,12

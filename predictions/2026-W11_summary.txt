@@ -1,0 +1,32 @@
+Eataway Prognos — 2026-W11
+Genererad: 2026-02-24 20:34
+
+Total: 12,866 enheter
+Butiker: 154
+Produkter: 52
+Nollprognoser: 139 (4%)
+
+Per dag:
+  Sunday: 3,835
+  Monday: 827
+  Tuesday: 2,421
+  Wednesday: 748
+  Thursday: 5,035
+
+Per typ:
+  Baguette: 1,386
+  Blandstubbe: 11
+  Fralla: 1,514
+  Glutenfri Frallor: 104
+  Grönsallad: 194
+  Hönökaka: 1,922
+  Pastasallad: 2,685
+  Räkmacka Liten: 35
+  Räkstubbe: 16
+  Sandwich: 1,320
+  Stubbe: 2
+  Varmrätt: 394
+  Wraps: 2,448
+  XL Frallor: 835
+
+Väder: 0.2°C, nederbörd 1.1mm
