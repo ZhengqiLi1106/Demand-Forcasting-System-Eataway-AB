@@ -157,11 +157,26 @@ def load_csv(path):
         return None
 
 def get_predicted_week() -> str:
-    """返回模型输出的周（driver_view_v7.csv 中的最大周）。"""
+    """返回模型输出的周。
+    优先读 CSV 里的 year_week 列；若无该列，从 predictions/ 文件名提取。
+    """
+    # ① 尝试从 CSV 列读取
     for fname in ["driver_view_v7.csv", "evaluation_v7.csv"]:
         df = load_csv(OUTPUT_DIR / fname)
         if df is not None and "year_week" in df.columns:
-            return str(df["year_week"].max())
+            val = str(df["year_week"].max())
+            if val not in ("nan", "", "None"):
+                return val
+    # ② 从 predictions/ 文件夹文件名提取（如 2026-W11_driver.csv）
+    pred_dir = BASE_DIR / "predictions"
+    if pred_dir.exists():
+        weeks = []
+        for f in pred_dir.glob("*_driver.csv"):
+            m = re.match(r"(\d{4}-W\d{2})_driver\.csv", f.name)
+            if m:
+                weeks.append(m.group(1))
+        if weeks:
+            return max(weeks)
     return ""
 
 def get_driver_predicted(display_yw: str = "") -> dict:
