@@ -22,7 +22,7 @@ from pathlib import Path
 from flask import Flask, render_template, jsonify, send_file, request
 
 app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024  # 最大上传 100MB
+app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024  # 最大上传 200MB（1year.csv 约 108MB）
 
 # ── 路径配置 ──────────────────────────────────────────────────
 BASE_DIR       = Path(__file__).parent.parent
@@ -464,16 +464,29 @@ def api_upload():
     f = request.files.get("file")
     if not f or not f.filename:
         return jsonify({"ok": False, "msg": "未选择文件"})
-    if not f.filename.endswith(".csv"):
-        return jsonify({"ok": False, "msg": "只接受 CSV 文件"})
+    fname = f.filename.lower()
+    if not (fname.endswith(".csv") or fname.endswith(".zip")):
+        return jsonify({"ok": False, "msg": "只接受 CSV 或 ZIP 文件"})
     try:
-        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-        f.save(str(DATA_FILE))
+        DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
+        if fname.endswith(".zip"):
+            # 保存 zip 并解压出 1year.csv
+            import zipfile, io
+            data = f.read()
+            with zipfile.ZipFile(io.BytesIO(data), "r") as zf:
+                names = zf.namelist()
+                csv_name = next((n for n in names if n.endswith(".csv")), None)
+                if not csv_name:
+                    return jsonify({"ok": False, "msg": "ZIP 里未找到 CSV 文件"})
+                with zf.open(csv_name) as src, open(DATA_FILE, "wb") as dst:
+                    dst.write(src.read())
+        else:
+            f.save(str(DATA_FILE))
         # 使缓存失效
         _raw_state["df"] = None
         _hist_cache.clear()
-        size_kb = DATA_FILE.stat().st_size // 1024
-        return jsonify({"ok": True, "msg": f"上传成功 ({size_kb} KB)，可以运行训练了"})
+        size_mb = DATA_FILE.stat().st_size / 1024 / 1024
+        return jsonify({"ok": True, "msg": f"上传成功 ({size_mb:.1f} MB)，历史数据已更新"})
     except Exception as e:
         return jsonify({"ok": False, "msg": str(e)})
 
