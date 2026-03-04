@@ -465,24 +465,32 @@ def _pred_date_map(start_str: str, end_str: str):
 
 
 def get_driver_predicted_for_dates(start_str: str, end_str: str) -> dict:
-    """把模型输出映射到实际日期（仅限与预测周有重叠的日期）。"""
-    info = _pred_date_map(start_str, end_str)
-    if not info:
-        return {}
-    pred_mon, in_range = info
-
+    """按星期几将模型预测映射到请求日期范围内的实际日期。
+    模型输出是星期几级别的规律，可应用于任意周（本周、下周等）。
+    每种星期几取范围内第一次出现的日期。
+    """
+    from datetime import date as _date
     df = load_csv(OUTPUT_DIR / "driver_view_v7.csv")
     if df is None:
         return {}
-    df["_ord"] = df["Day"].map(DAY_ORDER).fillna(9)
+    try:
+        s = _date.fromisoformat(start_str)
+        e = _date.fromisoformat(end_str)
+    except Exception:
+        return {}
 
-    # 建立 day-name → 实际日期 映射
+    # 建立 day-name → 实际日期 映射（每种星期几取范围内第一次出现的日期）
     day_to_date = {}
-    for day_name, offset in DAY_OFFSETS.items():
-        d = (pred_mon + timedelta(days=offset)).date()
-        if d in in_range:
+    for offset in range((e - s).days + 1):
+        d = s + timedelta(days=offset)
+        day_name = d.strftime("%A")   # "Monday", "Tuesday", ...
+        if day_name not in day_to_date:
             day_to_date[day_name] = d
 
+    if not day_to_date:
+        return {}
+
+    df["_ord"] = df["Day"].map(DAY_ORDER).fillna(9)
     result = {}
     for route, rdf in df.groupby("Route"):
         stores = {}
@@ -508,23 +516,29 @@ def get_driver_predicted_for_dates(start_str: str, end_str: str) -> dict:
 
 
 def get_kitchen_predicted_for_dates(start_str: str, end_str: str) -> dict:
-    """厨房预测视图：映射到实际日期。"""
-    info = _pred_date_map(start_str, end_str)
-    if not info:
-        return {}
-    pred_mon, in_range = info
-
+    """按星期几将厨房预测映射到请求日期范围内的实际日期。"""
+    from datetime import date as _date
     df = load_csv(OUTPUT_DIR / "kitchen_view_v7.csv")
     if df is None:
         return {}
-    df["_ord"] = df["Day"].map(DAY_ORDER).fillna(9)
-    df = df.sort_values(["_ord", "Qty"], ascending=[True, False])
+    try:
+        s = _date.fromisoformat(start_str)
+        e = _date.fromisoformat(end_str)
+    except Exception:
+        return {}
 
     day_to_date = {}
-    for day_name, offset in DAY_OFFSETS.items():
-        d = (pred_mon + timedelta(days=offset)).date()
-        if d in in_range:
+    for offset in range((e - s).days + 1):
+        d = s + timedelta(days=offset)
+        day_name = d.strftime("%A")
+        if day_name not in day_to_date:
             day_to_date[day_name] = d
+
+    if not day_to_date:
+        return {}
+
+    df["_ord"] = df["Day"].map(DAY_ORDER).fillna(9)
+    df = df.sort_values(["_ord", "Qty"], ascending=[True, False])
 
     result = {}
     for day, ddf in df.groupby("Day"):
@@ -614,14 +628,15 @@ def api_driver():
         date_range_label = fmt_date_range(from_d, to_d)
         try:
             from datetime import date as _date2
-            start_d = _date2.fromisoformat(from_d)
+            end_d   = _date2.fromisoformat(to_d)
             today_d = datetime.now().date()
-            is_future = start_d >= today_d
+            # 只要结束日期在今天或未来，就显示预测（含本周剩余天数）
+            is_future = end_d >= today_d
         except Exception:
             is_future = False
 
         if is_future:
-            # 未来日期优先返回模型预测
+            # 含未来日期 → 优先返回模型预测（按星期几映射到请求日期）
             pred_data = get_driver_predicted_for_dates(from_d, to_d)
             if pred_data:
                 return jsonify({
@@ -629,7 +644,7 @@ def api_driver():
                     "date_range": date_range_label,
                     "type":       "predicted",
                 })
-        # 查历史实际数据
+        # 纯历史日期 → 查实际数据
         actual = compute_date_range_actual(from_d, to_d)
         if actual is not None:
             return jsonify({
@@ -637,7 +652,7 @@ def api_driver():
                 "date_range": date_range_label,
                 "type":       "actual",
             })
-        # 过去无实际数据也尝试预测（部分重叠情况）
+        # 无历史数据也尝试预测
         pred_data = get_driver_predicted_for_dates(from_d, to_d)
         if pred_data:
             return jsonify({
@@ -685,9 +700,9 @@ def api_kitchen():
         date_range_label = fmt_date_range(from_d, to_d)
         try:
             from datetime import date as _date2
-            start_d = _date2.fromisoformat(from_d)
+            end_d   = _date2.fromisoformat(to_d)
             today_d = datetime.now().date()
-            is_future = start_d >= today_d
+            is_future = end_d >= today_d
         except Exception:
             is_future = False
 
