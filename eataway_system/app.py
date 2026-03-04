@@ -170,17 +170,11 @@ def load_csv(path):
         return None
 
 def get_predicted_week() -> str:
-    """返回模型输出的周。
-    优先读 CSV 里的 year_week 列；若无该列，从 predictions/ 文件名提取。
+    """返回模型输出的预测周（未来周）。
+    优先从 predictions/ 文件名提取（最可靠）；
+    evaluation_v7.csv 的 year_week 是历史评估数据，不能作为预测周。
     """
-    # ① 尝试从 CSV 列读取
-    for fname in ["driver_view_v7.csv", "evaluation_v7.csv"]:
-        df = load_csv(OUTPUT_DIR / fname)
-        if df is not None and "year_week" in df.columns:
-            val = str(df["year_week"].max())
-            if val not in ("nan", "", "None"):
-                return val
-    # ② 从 predictions/ 文件夹文件名提取（如 2026-W11_driver.csv）
+    # ① 优先从 predictions/ 文件夹文件名提取（如 2026-W11_driver.csv）
     pred_dir = BASE_DIR / "predictions"
     if pred_dir.exists():
         weeks = []
@@ -190,6 +184,12 @@ def get_predicted_week() -> str:
                 weeks.append(m.group(1))
         if weeks:
             return max(weeks)
+    # ② 从 driver_view_v7.csv 的 year_week 列读取（evaluation_v7 不可用，含历史数据）
+    df = load_csv(OUTPUT_DIR / "driver_view_v7.csv")
+    if df is not None and "year_week" in df.columns:
+        val = str(df["year_week"].max())
+        if val not in ("nan", "", "None"):
+            return val
     return ""
 
 def get_driver_predicted(display_yw: str = "") -> dict:
