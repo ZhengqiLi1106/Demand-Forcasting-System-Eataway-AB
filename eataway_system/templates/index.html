@@ -640,6 +640,51 @@
   .empty h2 { font-size: 18px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
   .empty p  { font-size: 13px; line-height: 1.7; max-width: 380px; margin: 0 auto 20px; }
 
+  /* ── FLAT TABLE ──────────────────────────────────────── */
+  .table-wrap {
+    overflow-x: auto;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+  #flat-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid var(--border);
+    background: var(--bg2);
+    font-size: 12.5px;
+  }
+  #flat-table thead th {
+    background: var(--bg3);
+    padding: 9px 12px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    color: var(--muted);
+    border-bottom: 2px solid var(--border);
+    white-space: nowrap;
+    user-select: none;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+  }
+  #flat-table thead th:hover { background: var(--orange-lt); color: var(--orange); }
+  #flat-table thead th.sorted { color: var(--orange); }
+  #flat-table thead th:last-child { text-align: right; }
+  .sort-icon { font-size: 10px; margin-left: 4px; opacity: 0.5; }
+  #flat-table thead th.sorted .sort-icon { opacity: 1; }
+  #flat-table tbody tr { border-bottom: 1px solid var(--border); }
+  #flat-table tbody tr:last-child { border-bottom: none; }
+  #flat-table tbody tr:hover { background: var(--orange-lt); }
+  #flat-table tbody td { padding: 7px 12px; }
+  .ft-datum  { font-family: var(--mono); font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .ft-ort    { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .ft-namn   { font-weight: 600; font-size: 12px; }
+  .ft-typ    { font-size: 11px; color: var(--muted2); white-space: nowrap; }
+  .ft-sort   { font-size: 12.5px; }
+  .ft-qty    { font-family: var(--mono); font-size: 14px; font-weight: 600;
+               color: var(--blue); text-align: right; white-space: nowrap; }
+  .ft-qty.high { color: var(--orange); }
+
   /* ── SCROLLBAR ───────────────────────────────────────── */
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: var(--bg3); }
@@ -687,7 +732,8 @@
 
 <!-- ── NAV ─────────────────────────────────────────────────── -->
 <nav>
-  <div class="tab active" onclick="switchTab('driver',this)">🚚 Chaufförsvy</div>
+  <div class="tab active" onclick="switchTab('table',this)">📋 Tabell</div>
+  <div class="tab" onclick="switchTab('driver',this)">🚚 Chaufförsvy</div>
   <div class="tab" onclick="switchTab('kitchen',this)">🍳 Köksvy</div>
   <div class="tab" onclick="switchTab('pipeline',this)">⚙ Kör Pipeline</div>
   <div class="tab" onclick="switchTab('diagnostics',this)">📊 Diagnostik</div>
@@ -728,9 +774,54 @@
   {% endif %}
 
   <!-- ════════════════════════════════════════════════════ -->
+  <!-- FLAT TABLE VIEW                                     -->
+  <!-- ════════════════════════════════════════════════════ -->
+  <div id="panel-table" class="panel active">
+    {% if not has_output %}
+    <div class="empty">
+      <div class="empty-icon">📋</div>
+      <h2>Inga resultat ännu</h2>
+      <p>Gå till "Kör Pipeline" för att generera prognoser.</p>
+    </div>
+    {% else %}
+    <div class="toolbar">
+      <input class="search-input" id="table-search" type="text"
+             placeholder="Sök datum, ort, butik, produkt..."
+             oninput="filterTable()">
+      <div class="total-pill">Totalt: <strong id="table-total">—</strong> rader</div>
+      <button class="btn" id="table-dl-btn" onclick="downloadFlat()"
+              style="margin-left:auto">↓ Ladda ner CSV</button>
+    </div>
+    <div class="table-wrap">
+      <table id="flat-table">
+        <thead>
+          <tr>
+            <th id="th-datum"  onclick="sortTableBy('datum')" class="sorted">
+              Datum <span class="sort-icon" id="si-datum">↑</span></th>
+            <th id="th-ort"   onclick="sortTableBy('ort')">
+              Ort <span class="sort-icon" id="si-ort">↕</span></th>
+            <th id="th-namn"  onclick="sortTableBy('namn')">
+              Butik <span class="sort-icon" id="si-namn">↕</span></th>
+            <th id="th-typ"   onclick="sortTableBy('typ')">
+              Typ <span class="sort-icon" id="si-typ">↕</span></th>
+            <th id="th-sort"  onclick="sortTableBy('sort')">
+              Produkt <span class="sort-icon" id="si-sort">↕</span></th>
+            <th id="th-qty"   onclick="sortTableBy('qty')" style="text-align:right">
+              Antal <span class="sort-icon" id="si-qty">↕</span></th>
+          </tr>
+        </thead>
+        <tbody id="table-body">
+          <tr><td colspan="6" style="text-align:center;padding:40px;color:var(--muted)">Laddar...</td></tr>
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- ════════════════════════════════════════════════════ -->
   <!-- DRIVER VIEW                                         -->
   <!-- ════════════════════════════════════════════════════ -->
-  <div id="panel-driver" class="panel active">
+  <div id="panel-driver" class="panel">
     {% if not has_output %}
     <div class="empty">
       <div class="empty-icon">🚚</div>
@@ -839,6 +930,10 @@
 let driverData   = null;
 let kitchenData  = null;
 let pollTimer    = null;
+let tableData    = [];        // flat rows [{datum,ort,namn,typ,sort,qty}]
+let tableSortCol = 'datum';   // current sort column
+let tableSortAsc = true;      // sort direction
+let tableQ       = '';        // search query
 
 // 日期区间状态（从 Flask 传入的初始值）
 let selectedFrom = "{{ init_from }}";
@@ -922,7 +1017,8 @@ function reloadActiveTab() {
   const m = active.getAttribute('onclick').match(/switchTab\('(\w+)'/);
   if (!m) return;
   const tab = m[1];
-  if (tab === 'driver')      loadDriver();
+  if (tab === 'table')        { tableData = []; loadTable(); }
+  else if (tab === 'driver')  loadDriver();
   else if (tab === 'kitchen') loadKitchen();
 }
 
@@ -943,6 +1039,7 @@ function switchTab(name, el) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   el.classList.add('active');
   document.getElementById('panel-' + name).classList.add('active');
+  if (name === 'table')       loadTable();
   if (name === 'driver')      loadDriver();
   if (name === 'kitchen')     loadKitchen();
   if (name === 'diagnostics') {
@@ -1132,6 +1229,105 @@ function filterKitchen() {
   });
 }
 
+// ── FLAT TABLE ────────────────────────────────────────────────
+async function loadTable() {
+  const tbody = document.getElementById('table-body');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:48px;color:var(--muted)">Laddar...</td></tr>';
+  try {
+    const url = '/api/flat?from=' + encodeURIComponent(selectedFrom)
+              + '&to='            + encodeURIComponent(selectedTo);
+    const res  = await fetch(url);
+    const json = await res.json();
+    tableData = json.data || [];
+    updateHeader(json.date_range, json.type);
+    if (!tableData.length) {
+      tbody.innerHTML = '<tr><td colspan="6"><div class="empty">'
+        + '<div class="empty-icon">📭</div><h2>Ingen data</h2>'
+        + '<p>Ingen data för ' + esc(selectedFrom) + ' – ' + esc(selectedTo) + '.</p>'
+        + '</div></td></tr>';
+    } else {
+      renderTable();
+    }
+  } catch(e) {
+    tbody.innerHTML = '<tr><td colspan="6" style="color:var(--red);padding:20px">Fel: '
+                    + esc(String(e)) + '</td></tr>';
+  }
+}
+
+function renderTable() {
+  // Filter
+  const q = tableQ.toLowerCase();
+  const filtered = q
+    ? tableData.filter(r =>
+        r.datum.includes(q) || r.ort.toLowerCase().includes(q) ||
+        r.namn.toLowerCase().includes(q) || r.typ.toLowerCase().includes(q) ||
+        r.sort.toLowerCase().includes(q) || String(r.qty).includes(q))
+    : tableData.slice();
+
+  // Sort
+  filtered.sort((a, b) => {
+    const va = tableSortCol === 'qty' ? (a.qty || 0) : (a[tableSortCol] || '').toLowerCase();
+    const vb = tableSortCol === 'qty' ? (b.qty || 0) : (b[tableSortCol] || '').toLowerCase();
+    if (va < vb) return tableSortAsc ? -1 : 1;
+    if (va > vb) return tableSortAsc ?  1 : -1;
+    return 0;
+  });
+
+  // Render
+  const el = document.getElementById('table-total');
+  if (el) el.textContent = filtered.length.toLocaleString('sv-SE');
+
+  const tbody = document.getElementById('table-body');
+  if (!tbody) return;
+  tbody.innerHTML = filtered.map(r => {
+    const highCls = r.qty >= 10 ? ' high' : '';
+    return `<tr>
+      <td class="ft-datum">${esc(r.datum)}</td>
+      <td class="ft-ort">${esc(r.ort)}</td>
+      <td class="ft-namn">${esc(r.namn)}</td>
+      <td class="ft-typ">${esc(r.typ)}</td>
+      <td class="ft-sort">${esc(r.sort)}</td>
+      <td class="ft-qty${highCls}">${r.qty}</td>
+    </tr>`;
+  }).join('');
+
+  // Update sort header indicators
+  ['datum','ort','namn','typ','sort','qty'].forEach(col => {
+    const th = document.getElementById('th-' + col);
+    const si = document.getElementById('si-' + col);
+    if (!th || !si) return;
+    if (col === tableSortCol) {
+      th.classList.add('sorted');
+      si.textContent = tableSortAsc ? '↑' : '↓';
+    } else {
+      th.classList.remove('sorted');
+      si.textContent = '↕';
+    }
+  });
+}
+
+function filterTable() {
+  tableQ = (document.getElementById('table-search')?.value || '');
+  renderTable();
+}
+
+function sortTableBy(col) {
+  if (tableSortCol === col) {
+    tableSortAsc = !tableSortAsc;
+  } else {
+    tableSortCol = col;
+    tableSortAsc = col !== 'qty';   // qty sorts descending by default
+  }
+  renderTable();
+}
+
+function downloadFlat() {
+  const url = '/api/download/flat?from=' + encodeURIComponent(selectedFrom)
+            + '&to='                      + encodeURIComponent(selectedTo);
+  window.location.href = url;
+}
+
 // ── PASSWORD ───────────────────────────────────────────────────
 function getPassword() {
   const el = document.getElementById('pw-input');
@@ -1238,7 +1434,7 @@ function esc(s) {
 }
 
 // ── INIT ──────────────────────────────────────────────────────
-if (document.getElementById('driver-container')) loadDriver();
+if (document.getElementById('table-body')) loadTable();
 </script>
 </body>
 </html>

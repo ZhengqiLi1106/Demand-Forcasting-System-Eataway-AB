@@ -595,6 +595,96 @@ def get_kitchen_predicted_for_dates(start_str: str, end_str: str) -> dict:
     return result
 
 
+def get_flat_predicted(from_d: str, to_d: str) -> list:
+    """将预测展平为 datum/ort/namn/typ/sort/qty 行列表。
+    解析 driver_view_v7.csv 的 Products 列，并从 kitchen_view_v7.csv 获取 typ。
+    """
+    from datetime import date as _date
+    df = load_csv(OUTPUT_DIR / "driver_view_v7.csv")
+    if df is None:
+        return []
+    # 构建 sort→typ 映射（来自厨房视图）
+    df_kit = load_csv(OUTPUT_DIR / "kitchen_view_v7.csv")
+    prod_type: dict = {}
+    if df_kit is not None and "Product" in df_kit.columns and "Type" in df_kit.columns:
+        for _, r in df_kit.iterrows():
+            prod_type[str(r["Product"])] = str(r["Type"])
+    try:
+        s = _date.fromisoformat(from_d)
+        e = _date.fromisoformat(to_d)
+    except Exception:
+        return []
+    # 星期几→实际日期映射
+    day_to_date: dict = {}
+    for offset in range((e - s).days + 1):
+        d = s + timedelta(days=offset)
+        dn = d.strftime("%A")
+        if dn not in day_to_date:
+            day_to_date[dn] = d
+
+    rows: list = []
+    for _, row in df.iterrows():
+        dn = row["Day"]
+        if dn not in day_to_date:
+            continue
+        actual_date = day_to_date[dn]
+        products_str = str(row.get("Products", ""))
+        if not products_str or products_str == "nan":
+            continue
+        for part in products_str.split(" | "):
+            part = part.strip()
+            if not part:
+                continue
+            if ": " in part:
+                prod_name, qty_str = part.rsplit(": ", 1)
+                try:
+                    qty = int(float(qty_str))
+                except Exception:
+                    qty = 1
+            else:
+                prod_name, qty = part, 1
+            typ = prod_type.get(prod_name,
+                  prod_name.split("/")[0] if "/" in prod_name else "")
+            rows.append({
+                "datum": str(actual_date),
+                "ort":   str(row["Route"]),
+                "namn":  str(row["Store"]),
+                "typ":   typ,
+                "sort":  prod_name,
+                "qty":   qty,
+            })
+    rows.sort(key=lambda r: (r["datum"], r["ort"], r["namn"], r["sort"]))
+    return rows
+
+
+def get_flat_actual(from_d: str, to_d: str) -> list:
+    """从历史 1year.csv 提取 datum/ort/namn/typ/sort/qty 行列表。"""
+    import pandas as pd
+    df = _get_raw_df()
+    if df is None:
+        return []
+    try:
+        s = pd.Timestamp(from_d)
+        e = pd.Timestamp(to_d) + pd.Timedelta(days=1)
+    except Exception:
+        return []
+    rdf = df[(df["datum"] >= s) & (df["datum"] < e) & (df["faktisk"] > 0)].copy()
+    if rdf.empty:
+        return []
+    rdf = rdf.sort_values(["datum", "ort", "namn", "sort"])
+    return [
+        {
+            "datum": row.datum.strftime("%Y-%m-%d"),
+            "ort":   str(row.ort),
+            "namn":  str(row.namn),
+            "typ":   str(row.typ),
+            "sort":  str(row.sort),
+            "qty":   int(row.faktisk),
+        }
+        for row in rdf.itertuples()
+    ]
+
+
 def get_all_weeks():
     """返回所有可用周（实际 + 预测）。"""
     weeks = {}
@@ -652,6 +742,52 @@ def index():
 @app.route("/api/weeks")
 def api_weeks():
     return jsonify(get_all_weeks())
+
+@app.route("/api/flat")
+def api_flat():
+    """返回平铺表格数据：datum/ort/namn/typ/sort/qty 行列表。"""
+    from_d = request.args.get("from", "").strip()
+    to_d   = request.args.get("to",   "").strip()
+    if not from_d or not to_d:
+        return jsonify({"data": [], "date_range": "", "type": "nodata"})
+    date_range_label = fmt_date_range(from_d, to_d)
+    is_pred = _should_show_prediction(from_d, to_d)
+    if is_pred:
+        rows = get_flat_predicted(from_d, to_d)
+        if rows:
+            return jsonify({"data": rows, "date_range": date_range_label, "type": "predicted"})
+    rows = get_flat_actual(from_d, to_d)
+    if rows:
+        return jsonify({"data": rows, "date_range": date_range_label, "type": "actual"})
+    rows = get_flat_predicted(from_d, to_d)
+    if rows:
+        return jsonify({"data": rows, "date_range": date_range_label, "type": "predicted"})
+    return jsonify({"data": [], "date_range": date_range_label, "type": "nodata"})
+
+@app.route("/api/download/flat")
+def api_download_flat():
+    """下载平铺格式 CSV：datum/ort/namn/typ/sort/qty。"""
+    from_d = request.args.get("from", "").strip()
+    to_d   = request.args.get("to",   "").strip()
+    if not from_d or not to_d:
+        return "Missing parameters", 400
+    is_pred = _should_show_prediction(from_d, to_d)
+    if is_pred:
+        rows = get_flat_predicted(from_d, to_d) or get_flat_actual(from_d, to_d)
+    else:
+        rows = get_flat_actual(from_d, to_d) or get_flat_predicted(from_d, to_d)
+    if not rows:
+        return "Ingen data", 404
+    import io, csv as csv_mod
+    from flask import Response
+    buf = io.StringIO()
+    writer = csv_mod.DictWriter(buf, fieldnames=["datum","ort","namn","typ","sort","qty"])
+    writer.writeheader()
+    writer.writerows(rows)
+    csv_bytes = ("\ufeff" + buf.getvalue()).encode("utf-8")   # BOM for Excel
+    filename = f"eataway_{from_d}_{to_d}.csv"
+    return Response(csv_bytes, mimetype="text/csv",
+                    headers={"Content-Disposition": f"attachment; filename={filename}"})
 
 @app.route("/api/driver")
 def api_driver():
