@@ -825,13 +825,13 @@
              placeholder="Sök ort, butik, produkt..."
              oninput="filterTable()">
       <div class="total-pill">Totalt: <strong id="table-total">—</strong></div>
-      <button class="btn" id="table-dl-btn" onclick="downloadFlat()"
-              style="margin-left:auto">↓ Ladda ner CSV</button>
-      <button class="btn" id="gsheet-btn" onclick="syncGSheet()"
-              style="background:#1e8e3e;color:#fff;border-color:#1e8e3e;gap:5px">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14l-5-5 1.41-1.41L12 14.17l7.59-7.59L21 8l-9 9z"/></svg>
-        Synka Google Sheet
-      </button>
+      <a class="btn" id="table-gsheet-btn"
+         href="https://docs.google.com/spreadsheets/d/1upeKGfNHZLvvMTGflw_3HJp1flB817XkyO9PMGs1w1o"
+         target="_blank"
+         style="margin-left:auto;background:#1e8e3e;color:#fff;border-color:#1e8e3e;gap:5px;text-decoration:none">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zM7 10h2v7H7zm4-3h2v10h-2zm4 6h2v4h-2z"/></svg>
+        Öppna Google Sheet
+      </a>
     </div>
     <div id="table-container">
       <div style="padding:48px;text-align:center;color:var(--muted)">Laddar...</div>
@@ -1387,40 +1387,6 @@ function downloadFlat() {
   window.location.href = url;
 }
 
-async function syncGSheet() {
-  const btn  = document.getElementById('gsheet-btn');
-  const orig = btn.innerHTML;
-  btn.disabled = true;
-  btn.innerHTML = '⏳ Synkar...';
-  try {
-    const res  = await fetch('/api/export-gsheet', {
-      method:  'POST',
-      headers: {'Content-Type': 'application/json'},
-      body:    JSON.stringify({ from: selectedFrom, to: selectedTo }),
-    });
-    const json = await res.json();
-    if (json.ok) {
-      btn.innerHTML = '✓ Klar!';
-      btn.style.background    = '#1e8e3e';
-      btn.style.borderColor   = '#1e8e3e';
-    } else {
-      btn.innerHTML = '✗ Fel';
-      btn.style.background  = '#dc2626';
-      btn.style.borderColor = '#dc2626';
-      alert('Google Sheet 导出失败:\n' + json.msg);
-    }
-  } catch(e) {
-    btn.innerHTML = '✗ Fel';
-    btn.style.background  = '#dc2626';
-    btn.style.borderColor = '#dc2626';
-  }
-  setTimeout(() => {
-    btn.innerHTML         = orig;
-    btn.disabled          = false;
-    btn.style.background  = '#1e8e3e';
-    btn.style.borderColor = '#1e8e3e';
-  }, 3000);
-}
 
 // ── PASSWORD ───────────────────────────────────────────────────
 function getPassword() {
