@@ -1046,6 +1046,99 @@ def main():
     print(f"  Weather: {'YES' if hw else 'NO (run eataway_weather.py first)'}")
     print("=" * 70)
 
+    # ── 导出到 Google Sheet ──────────────────────────────────────────────
+    print("=" * 70)
+    print("Export to Google Sheet")
+    print("=" * 70)
+    try:
+        import os as _os, re as _re
+        from pathlib import Path as _Path
+        from datetime import date as _date, timedelta as _td
+        import gspread
+        from google.oauth2.service_account import Credentials
+
+        GSHEET_ID  = "1upeKGfNHZLvvMTGflw_3HJp1flB817XkyO9PMGs1w1o"
+        GSHEET_TAB = "Tabell"
+        SCOPES = ["https://www.googleapis.com/auth/spreadsheets",
+                  "https://www.googleapis.com/auth/drive"]
+
+        # 凭证：优先环境变量，回退本地 credentials.json
+        creds_env = _os.environ.get("GOOGLE_SHEETS_CREDS", "")
+        if creds_env:
+            creds = Credentials.from_service_account_info(
+                json.loads(creds_env), scopes=SCOPES)
+        else:
+            cred_file = _Path(__file__).parent / "eataway_system" / "credentials.json"
+            creds = Credentials.from_service_account_file(str(cred_file), scopes=SCOPES)
+
+        # sort→typ 映射（来自 kitchen view）
+        prod_type = {}
+        if "Product" in kit.columns and "Type" in kit.columns:
+            for _, r in kit.iterrows():
+                prod_type[str(r["Product"])] = str(r["Type"])
+
+        # year_week → 日期范围（周日到周六）
+        yw = str(drv["year_week"].max())
+        m_ = _re.match(r"(\d{4})-W(\d{2})", yw)
+        if m_:
+            iso_mon  = _date.fromisocalendar(int(m_.group(1)), int(m_.group(2)), 1)
+            week_sun = iso_mon - _td(days=1)
+            week_sat = iso_mon + _td(days=5)
+        else:
+            week_sun = week_sat = _date.today()
+
+        day_map = {}
+        for offset in range((week_sat - week_sun).days + 1):
+            d  = week_sun + _td(days=offset)
+            dn = d.strftime("%A")
+            if dn not in day_map:
+                day_map[dn] = d
+
+        # 展平：每个产品独立一行
+        sheet_rows = []
+        for _, row in drv.iterrows():
+            dn = row.get("Day", "")
+            if dn not in day_map:
+                continue
+            actual_date   = day_map[dn]
+            products_str  = str(row.get("Products", ""))
+            if not products_str or products_str == "nan":
+                continue
+            for part in products_str.split(" | "):
+                part = part.strip()
+                if not part:
+                    continue
+                if ": " in part:
+                    prod_name, qty_str = part.rsplit(": ", 1)
+                    try:
+                        qty = int(float(qty_str))
+                    except Exception:
+                        qty = 1
+                else:
+                    prod_name, qty = part, 1
+                typ = prod_type.get(prod_name,
+                      prod_name.split("/")[0] if "/" in prod_name else "")
+                sheet_rows.append([str(actual_date), str(row["Route"]),
+                                   str(row["Store"]), typ, prod_name, qty])
+
+        sheet_rows.sort(key=lambda r: (r[0], r[1], r[2], r[4]))
+
+        # 写入 Google Sheet（清空后覆盖）
+        gc = gspread.authorize(creds)
+        sh = gc.open_by_key(GSHEET_ID)
+        try:
+            ws = sh.worksheet(GSHEET_TAB)
+        except gspread.exceptions.WorksheetNotFound:
+            ws = sh.add_worksheet(title=GSHEET_TAB, rows=5000, cols=10)
+        ws.clear()
+        ws.update([["Datum", "Ort", "Butik", "Typ", "Produkt", "Antal"]] + sheet_rows, "A1")
+        print(f"  ✓ 已写入 {len(sheet_rows)} 行 → Google Sheet [{yw}]")
+    except ImportError:
+        print("  ✗ 跳过导出: 请先安装依赖 pip install gspread google-auth")
+    except Exception as e:
+        print(f"  ✗ Google Sheet 导出失败: {e}")
+    print("=" * 70)
+
 
 if __name__ == "__main__":
     main()
