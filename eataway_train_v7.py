@@ -1071,19 +1071,14 @@ def main():
             cred_file = _Path(__file__).parent / "eataway_system" / "credentials.json"
             creds = Credentials.from_service_account_file(str(cred_file), scopes=SCOPES)
 
-        # sort→typ 映射（来自 kitchen view）
-        prod_type = {}
-        if "Product" in kit.columns and "Type" in kit.columns:
-            for _, r in kit.iterrows():
-                prod_type[str(r["Product"])] = str(r["Type"])
-
-        # year_week → 日期范围（周日到周六）
-        yw = str(drv["year_week"].max())
+        # 用最后完整训练周推算交货周（下一ISO周，周日→周四）
+        yw = str(last_clean_week)  # e.g. "2026-W07"
         m_ = _re.match(r"(\d{4})-W(\d{2})", yw)
         if m_:
             iso_mon  = _date.fromisocalendar(int(m_.group(1)), int(m_.group(2)), 1)
-            week_sun = iso_mon - _td(days=1)
-            week_sat = iso_mon + _td(days=5)
+            next_mon = iso_mon + _td(days=7)   # 下一周的周一 = 交货周
+            week_sun = next_mon - _td(days=1)  # 周日
+            week_sat = next_mon + _td(days=5)  # 周六
         else:
             week_sun = week_sat = _date.today()
 
@@ -1116,10 +1111,13 @@ def main():
                         qty = 1
                 else:
                     prod_name, qty = part, 1
-                typ = prod_type.get(prod_name,
-                      prod_name.split("/")[0] if "/" in prod_name else "")
+                # prod_name format: "typ/sort" from build_detail()
+                if "/" in prod_name:
+                    typ_part, sort_part = prod_name.split("/", 1)
+                else:
+                    typ_part, sort_part = "", prod_name
                 sheet_rows.append([str(actual_date), str(row["Route"]),
-                                   str(row["Store"]), typ, prod_name, qty])
+                                   str(row["Store"]), typ_part, sort_part, qty])
 
         sheet_rows.sort(key=lambda r: (r[0], r[1], r[2], r[4]))
 
