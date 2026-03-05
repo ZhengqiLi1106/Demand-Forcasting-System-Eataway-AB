@@ -483,7 +483,8 @@ class CalibratedHurdleModel:
                     yc[mask] = yr[mask] * f
 
         yf = np.clip(np.round(yc), 0, None).astype(int)
-        return yf, pc, rp
+        # yc 是偏差校正后的 float（未取整），供 gen_views 在应用 global_scale 前使用
+        return yf, pc, rp, yc
 
     def feature_importance(self, features):
         cg = self.cls_model.feature_importance(importance_type="gain")
@@ -546,7 +547,7 @@ class V4Ensemble:
         print("  -- Ensemble weights --")
         X = df_val[features]
         yt = df_val[TARGET].values
-        ph, _, _ = self.hurdle.predict(X)
+        ph, _, _, _ = self.hurdle.predict(X)
         pt = self.tweedie.predict(X)
 
         best_score, best_w = float("inf"), 0.65
@@ -571,13 +572,16 @@ class V4Ensemble:
         print()
 
     def predict(self, X):
-        ph, pc, rp = self.hurdle.predict(X)
+        ph, pc, rp, ph_float = self.hurdle.predict(X)
         pt = self.tweedie.predict(X)
         wh, wt = self.weights
         combined = wh * ph + wt * pt
+        # combined_float 用偏差校正的 float 与 tweedie 混合，供 global_scale 前缩放
+        combined_float = wh * ph_float + wt * pt
         yf = np.clip(np.round(combined), 0, None).astype(int)
         return yf, {"p_cal": pc, "pred_hurdle": ph,
-                     "pred_tweedie": pt, "combined_raw": combined}
+                     "pred_tweedie": pt, "combined_raw": combined,
+                     "combined_float": combined_float}
 
     def feature_importance(self, features):
         fi = self.hurdle.feature_importance(features)
@@ -738,6 +742,11 @@ def gen_views(model, df_full, features, global_scale: float = 1.0):
     global_scale: 全局乘数，用于补偿模型系统性低估。
       推导方式: W09 holdout 实测 predicted=11211 vs actual=18250 → 18250/11211=1.627
       保守取 1.50 防止过校正，等积累更多实际数据后再更新。
+
+    V7.2 修复: global_scale 现在作用于 float 预测值（取整前），
+    而非整数预测值（取整后）。这样可以把许多原本被四舍五入为 0 的
+    门店"救活"，显著增加司机视图中的门店数量。
+    例如: combined_float=0.4, scale=1.5 → 0.60 → 取整为 1（之前是 0×1.5=0）
     """
     print("=" * 70)
     print("Generate Views")
@@ -745,10 +754,17 @@ def gen_views(model, df_full, features, global_scale: float = 1.0):
     lw  = df_full["year_week"].max()
     lat = df_full[df_full["year_week"] == lw].copy()
     av  = [c for c in features if c in lat.columns]
-    yp, _ = model.predict(lat[av])
+
+    # 获取原始 float 预测值（combined_float = float hurdle + tweedie，未取整）
+    _, det = model.predict(lat[av])
+    yp_float = det.get("combined_float", det["combined_raw"])
+
+    # 在 float 层面应用 global_scale，然后再取整 → 更多门店进入视图
     if global_scale != 1.0:
-        yp = yp * global_scale
-        print(f"  [global_scale={global_scale:.3f} applied]")
+        yp_float = yp_float * global_scale
+        print(f"  [global_scale={global_scale:.3f} applied to float predictions]")
+    yp = np.clip(np.round(yp_float), 0, None).astype(int)
+
     lat["pw"] = yp
     lat["pl"] = np.clip(np.floor(yp * 0.85).astype(int), 0, None)
     lat["pu"] = np.ceil(yp * 1.15).astype(int) + 1

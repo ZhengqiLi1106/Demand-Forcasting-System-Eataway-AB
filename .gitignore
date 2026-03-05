@@ -33,3 +33,6 @@ evaluation_v7.csv
 *.pkl
 *.joblib
 *.model
+
+# ── Google 服务账号密钥（绝对不能上传到 GitHub）─────────────
+credentials.json

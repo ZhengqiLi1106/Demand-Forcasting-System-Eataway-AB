@@ -25,12 +25,17 @@ app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024  # 最大上传 200MB（1year.csv 约 108MB）
 
 # ── 路径配置 ──────────────────────────────────────────────────
-BASE_DIR       = Path(__file__).parent.parent
-OUTPUT_DIR     = BASE_DIR / "output_v7"
-FEATURE_SCRIPT = BASE_DIR / "feature.py"
-TRAIN_SCRIPT   = BASE_DIR / "eataway_train_v7.py"
-DATA_FILE      = BASE_DIR / "1year.csv"
-DATA_ZIP       = BASE_DIR / "1year.csv.zip"   # GitHub 友好备用（6.8 MB）
+BASE_DIR         = Path(__file__).parent.parent
+OUTPUT_DIR       = BASE_DIR / "output_v7"
+FEATURE_SCRIPT   = BASE_DIR / "feature.py"
+TRAIN_SCRIPT     = BASE_DIR / "eataway_train_v7.py"
+DATA_FILE        = BASE_DIR / "1year.csv"
+DATA_ZIP         = BASE_DIR / "1year.csv.zip"   # GitHub 友好备用（6.8 MB）
+
+# ── Google Sheets 配置 ────────────────────────────────────────
+CREDENTIALS_FILE = Path(__file__).parent / "credentials.json"
+GSHEET_ID        = "1upeKGfNHZLvvMTGflw_3HJp1flB817XkyO9PMGs1w1o"
+GSHEET_TAB       = "Tabell"
 
 def _ensure_data_file():
     """若 1year.csv 不存在但 1year.csv.zip 存在，则自动解压。"""
@@ -157,6 +162,13 @@ def run_pipeline_thread():
             pipeline_status["log"].append(f"✗ 错误: {e}")
             pipeline_status["error"] = True
             break
+    # ── Pipeline 完成后自动导出到 Google Sheet ────────────────
+    if not pipeline_status["error"]:
+        pipeline_status["log"].append("\n▶ 导出到 Google Sheet...")
+        gs_result = export_to_gsheet()
+        icon = "✓" if gs_result["ok"] else "✗"
+        pipeline_status["log"].append(f"{icon} {gs_result['msg']}")
+
     pipeline_status["running"] = False
     pipeline_status["done"]    = True
 
@@ -685,6 +697,87 @@ def get_flat_actual(from_d: str, to_d: str) -> list:
     ]
 
 
+# ── Google Sheets 导出 ────────────────────────────────────────
+def _get_gsheet_creds():
+    """
+    读取 Google 服务账号凭证。
+    优先顺序：
+      1. 环境变量 GOOGLE_SHEETS_CREDS（Render 云端，JSON 字符串）
+      2. 本地文件 credentials.json（本地开发）
+    """
+    import json as _json
+    from google.oauth2.service_account import Credentials
+
+    scopes = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive",
+    ]
+
+    # ① 优先读环境变量（Render 云端）
+    creds_json = os.environ.get("GOOGLE_SHEETS_CREDS", "")
+    if creds_json:
+        info = _json.loads(creds_json)
+        return Credentials.from_service_account_info(info, scopes=scopes)
+
+    # ② 回退到本地文件（本地开发）
+    if CREDENTIALS_FILE.exists():
+        return Credentials.from_service_account_file(str(CREDENTIALS_FILE), scopes=scopes)
+
+    raise FileNotFoundError(
+        "找不到 Google 凭证：请设置环境变量 GOOGLE_SHEETS_CREDS，"
+        f"或把 credentials.json 放到 {CREDENTIALS_FILE}"
+    )
+
+
+def export_to_gsheet(from_d: str = "", to_d: str = "") -> dict:
+    """将预测 Tabell 数据（datum/ort/namn/typ/sort/qty）写入 Google Sheet（覆盖）。"""
+    try:
+        import gspread
+        from google.oauth2.service_account import Credentials  # noqa: F401
+    except ImportError:
+        return {"ok": False, "msg": "缺少依赖，请运行: pip install gspread google-auth"}
+
+    # 若未指定日期，自动取当前预测周（周日→周六）
+    if not from_d or not to_d:
+        pred_week = get_predicted_week()
+        if pred_week:
+            mon = week_monday(pred_week)
+            if mon:
+                from_d = (mon - timedelta(days=1)).strftime("%Y-%m-%d")
+                to_d   = (mon + timedelta(days=5)).strftime("%Y-%m-%d")
+    if not from_d or not to_d:
+        return {"ok": False, "msg": "找不到预测周，无法导出"}
+
+    rows = get_flat_predicted(from_d, to_d)
+    if not rows:
+        return {"ok": False, "msg": "没有预测数据可导出"}
+
+    try:
+        creds = _get_gsheet_creds()
+        gc    = gspread.authorize(creds)
+        sh    = gc.open_by_key(GSHEET_ID)
+
+        # 获取或新建工作表 Tab
+        try:
+            ws = sh.worksheet(GSHEET_TAB)
+        except gspread.exceptions.WorksheetNotFound:
+            ws = sh.add_worksheet(title=GSHEET_TAB, rows=5000, cols=10)
+
+        # 清空并覆盖写入
+        ws.clear()
+        header = [["Datum", "Ort", "Butik", "Typ", "Produkt", "Antal"]]
+        data   = header + [
+            [r["datum"], r["ort"], r["namn"], r["typ"], r["sort"], r["qty"]]
+            for r in rows
+        ]
+        ws.update(data, "A1")
+
+        date_label = fmt_date_range(from_d, to_d)
+        return {"ok": True, "msg": f"已写入 {len(rows)} 行（{date_label}）→ Google Sheet ✓"}
+    except Exception as e:
+        return {"ok": False, "msg": str(e)}
+
+
 def get_all_weeks():
     """返回所有可用周（实际 + 预测）。"""
     weeks = {}
@@ -983,6 +1076,15 @@ def api_download(name):
     if not path.exists():
         return "File not found", 404
     return send_file(str(path), as_attachment=True)
+
+@app.route("/api/export-gsheet", methods=["POST"])
+def api_export_gsheet():
+    """手动触发：将 Tabell 预测数据导出到 Google Sheet。"""
+    body   = request.get_json(silent=True) or {}
+    from_d = body.get("from", "")
+    to_d   = body.get("to",   "")
+    result = export_to_gsheet(from_d, to_d)
+    return jsonify(result)
 
 
 # ── 启动 ──────────────────────────────────────────────────────
