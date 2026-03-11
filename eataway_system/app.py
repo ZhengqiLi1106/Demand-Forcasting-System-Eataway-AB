@@ -1,15 +1,15 @@
 """
-Eataway 预测系统 — Web 界面 (生产版本)
+Eataway Prediction System — Web Interface (Production Version)
 
-本地运行:  python app.py
-云端部署:  gunicorn --chdir eataway_system app:app --bind 0.0.0.0:$PORT --timeout 300 --workers 1
+Local run:  python app.py
+Cloud deploy:  gunicorn --chdir eataway_system app:app --bind 0.0.0.0:$PORT --timeout 300 --workers 1
 
-可选密码保护: 设置环境变量 APP_PASSWORD=你的密码
-  → 上传数据和触发训练需要密码；查看数据不需要
+Optional password protection: set environment variable APP_PASSWORD=your_password
+  → Uploading data and triggering training requires a password; viewing data does not
 
-日期选择功能:
-  - 选择过去的日期 → 显示 1year.csv 里的真实发货数据（FAKTISK）
-  - 选择未来/当前周 → 显示模型预测结果（PROGNOS）
+Date selection functionality:
+  - Select a past date → shows real shipment data from 1year.csv (FAKTISK)
+  - Select a future/current week → shows model prediction results (PROGNOS)
 """
 
 import subprocess
@@ -22,33 +22,33 @@ from pathlib import Path
 from flask import Flask, render_template, jsonify, send_file, request
 
 app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024  # 最大上传 200MB（1year.csv 约 108MB）
+app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024  # Max upload 200MB (1year.csv is ~108MB)
 
-# ── 路径配置 ──────────────────────────────────────────────────
+# ── Path configuration ────────────────────────────────────────
 BASE_DIR         = Path(__file__).parent.parent
 OUTPUT_DIR       = BASE_DIR / "output_v7"
 FEATURE_SCRIPT   = BASE_DIR / "feature.py"
 TRAIN_SCRIPT     = BASE_DIR / "eataway_train_v7.py"
 DATA_FILE        = BASE_DIR / "1year.csv"
-DATA_ZIP         = BASE_DIR / "1year.csv.zip"   # GitHub 友好备用（6.8 MB）
+DATA_ZIP         = BASE_DIR / "1year.csv.zip"   # GitHub-friendly fallback (6.8 MB)
 
-# ── Google Sheets 配置 ────────────────────────────────────────
+# ── Google Sheets configuration ───────────────────────────────
 CREDENTIALS_FILE = Path(__file__).parent / "credentials.json"
 GSHEET_ID        = "1upeKGfNHZLvvMTGflw_3HJp1flB817XkyO9PMGs1w1o"
 GSHEET_TAB       = "Tabell"
 
 def _ensure_data_file():
-    """若 1year.csv 不存在但 1year.csv.zip 存在，则自动解压。"""
+    """If 1year.csv does not exist but 1year.csv.zip does, auto-extract it."""
     if not DATA_FILE.exists() and DATA_ZIP.exists():
         import zipfile
         try:
             with zipfile.ZipFile(DATA_ZIP, "r") as zf:
                 zf.extract("1year.csv", BASE_DIR)
-            print(f"✓ 已自动解压 {DATA_ZIP.name} → 1year.csv")
+            print(f"✓ Auto-extracted {DATA_ZIP.name} → 1year.csv")
         except Exception as e:
-            print(f"✗ 解压失败: {e}")
+            print(f"✗ Extraction failed: {e}")
 
-# ── 可选密码 ──────────────────────────────────────────────────
+# ── Optional password ─────────────────────────────────────────
 APP_PASSWORD = os.environ.get("APP_PASSWORD", "eataway")
 
 def _password_ok() -> bool:
@@ -60,11 +60,11 @@ def _password_ok() -> bool:
           or request.form.get("pw"))
     return pw == APP_PASSWORD
 
-# ── 流水线状态 ────────────────────────────────────────────────
+# ── Pipeline status ───────────────────────────────────────────
 pipeline_status = {"running": False, "log": [], "done": False, "error": False}
 
 
-# ── 日期工具 ──────────────────────────────────────────────────
+# ── Date utilities ────────────────────────────────────────────
 MONTHS_SV   = ["jan","feb","mar","apr","maj","jun",
                 "jul","aug","sep","okt","nov","dec"]
 DAY_OFFSETS = {"Sunday":-1,"Monday":0,"Tuesday":1,"Wednesday":2,
@@ -93,7 +93,7 @@ def week_to_range(yw: str) -> str:
     return f"{fmt_d(sun)} – {fmt_d(thu)} {mon.year}"
 
 def fmt_date_range(start_str: str, end_str: str) -> str:
-    """把 YYYY-MM-DD 区间格式化为 '9 mar – 15 mar 2026'。"""
+    """Format a YYYY-MM-DD range as '9 mar – 15 mar 2026'."""
     try:
         s = datetime.strptime(start_str, "%Y-%m-%d")
         e = datetime.strptime(end_str,   "%Y-%m-%d")
@@ -125,14 +125,14 @@ def week_step(yw: str, delta: int) -> str:
     return f"{iso[0]}-W{iso[1]:02d}"
 
 
-# ── 流水线 ────────────────────────────────────────────────────
+# ── Pipeline ──────────────────────────────────────────────────
 def run_pipeline_thread():
     global pipeline_status
     pipeline_status = {"running": True, "log": [], "done": False, "error": False}
     python = sys.executable
     steps = [
-        ("特征工程", [python, str(FEATURE_SCRIPT)]),
-        ("模型训练", [python, str(TRAIN_SCRIPT)]),
+        ("Feature Engineering", [python, str(FEATURE_SCRIPT)]),
+        ("Model Training", [python, str(TRAIN_SCRIPT)]),
     ]
     for step_name, cmd in steps:
         pipeline_status["log"].append(f"\n▶ {step_name}...")
@@ -153,18 +153,18 @@ def run_pipeline_thread():
                 pipeline_status["log"].append(line.rstrip())
             proc.wait()
             if proc.returncode != 0:
-                pipeline_status["log"].append(f"✗ {step_name} 失败 (code={proc.returncode})")
+                pipeline_status["log"].append(f"✗ {step_name} failed (code={proc.returncode})")
                 pipeline_status["error"] = True
                 break
             else:
-                pipeline_status["log"].append(f"✓ {step_name} 完成")
+                pipeline_status["log"].append(f"✓ {step_name} complete")
         except Exception as e:
-            pipeline_status["log"].append(f"✗ 错误: {e}")
+            pipeline_status["log"].append(f"✗ Error: {e}")
             pipeline_status["error"] = True
             break
-    # ── Pipeline 完成后自动导出到 Google Sheet ────────────────
+    # ── Auto-export to Google Sheet after pipeline completes ──
     if not pipeline_status["error"]:
-        pipeline_status["log"].append("\n▶ 导出到 Google Sheet...")
+        pipeline_status["log"].append("\n▶ Exporting to Google Sheet...")
         gs_result = export_to_gsheet()
         icon = "✓" if gs_result["ok"] else "✗"
         pipeline_status["log"].append(f"{icon} {gs_result['msg']}")
@@ -173,7 +173,7 @@ def run_pipeline_thread():
     pipeline_status["done"]    = True
 
 
-# ── 模型预测数据（来自 output_v7/ CSV） ───────────────────────
+# ── Model prediction data (from output_v7/ CSVs) ─────────────
 def load_csv(path):
     try:
         import pandas as pd
@@ -182,11 +182,11 @@ def load_csv(path):
         return None
 
 def get_predicted_week() -> str:
-    """返回模型输出的预测周（未来周）。
-    优先从 predictions/ 文件名提取（最可靠）；
-    evaluation_v7.csv 的 year_week 是历史评估数据，不能作为预测周。
+    """Return the model's predicted week (future week).
+    Prefer extracting from predictions/ filenames (most reliable);
+    year_week in evaluation_v7.csv is historical evaluation data and cannot be used as the predicted week.
     """
-    # ① 优先从 predictions/ 文件夹文件名提取（如 2026-W11_driver.csv）
+    # ① Prefer extracting from predictions/ folder filenames (e.g. 2026-W11_driver.csv)
     pred_dir = BASE_DIR / "predictions"
     if pred_dir.exists():
         weeks = []
@@ -196,7 +196,7 @@ def get_predicted_week() -> str:
                 weeks.append(m.group(1))
         if weeks:
             return max(weeks)
-    # ② 从 driver_view_v7.csv 的 year_week 列读取（evaluation_v7 不可用，含历史数据）
+    # ② Read from year_week column in driver_view_v7.csv (evaluation_v7 unusable, contains historical data)
     df = load_csv(OUTPUT_DIR / "driver_view_v7.csv")
     if df is not None and "year_week" in df.columns:
         val = str(df["year_week"].max())
@@ -205,7 +205,7 @@ def get_predicted_week() -> str:
     return ""
 
 def get_driver_predicted(display_yw: str = "") -> dict:
-    """从模型输出 CSV 获取司机视图。display_yw 用于覆盖日期标签。"""
+    """Get driver view from model output CSV. display_yw overrides date labels."""
     df = load_csv(OUTPUT_DIR / "driver_view_v7.csv")
     if df is None:
         return {}
@@ -229,7 +229,7 @@ def get_driver_predicted(display_yw: str = "") -> dict:
     return result
 
 def get_kitchen_predicted(display_yw: str = "") -> dict:
-    """从模型输出 CSV 获取厨房视图。"""
+    """Get kitchen view from model output CSV."""
     df = load_csv(OUTPUT_DIR / "kitchen_view_v7.csv")
     if df is None:
         return {}
@@ -255,29 +255,29 @@ def get_metrics():
     return df.iloc[0].to_dict()
 
 
-# ── 历史实际数据（来自 1year.csv） ────────────────────────────
+# ── Historical actual data (from 1year.csv) ───────────────────
 _raw_state   = {"df": None, "mtime": None}
 _hist_cache  = {}   # year_week → {"driver": {…}, "kitchen": {…}}
 _range_cache = {}   # (start, end) → {"driver": {…}, "kitchen": {…}}
 
 def _get_raw_df():
-    """带 mtime 缓存的 1year.csv 加载器。文件变化时自动失效。
-    内存优化：只加载必要列 + 使用 category 类型，内存占用从 ~400 MB 降至 ~80 MB。
+    """1year.csv loader with mtime caching. Automatically invalidates when file changes.
+    Memory optimized: only loads necessary columns + uses category types, reducing memory from ~400 MB to ~80 MB.
     """
-    _ensure_data_file()          # 若无 CSV 则尝试从 zip 解压
+    _ensure_data_file()          # If no CSV, try to extract from zip
     if not DATA_FILE.exists():
         return None
     try:
         import pandas as pd
         mtime = DATA_FILE.stat().st_mtime
         if _raw_state["df"] is None or _raw_state["mtime"] != mtime:
-            # ── 只读取需要的列，大幅减少内存 ──────────────────────
+            # ── Only read needed columns to significantly reduce memory ─
             needed = {"datum", "antal_ordrar", "antal_returer",
                       "ort", "namn", "sort", "typ"}
-            # 先探测实际列名（兼容列名不一致的情况）
+            # Probe actual column names first (handles inconsistent column names)
             header = pd.read_csv(DATA_FILE, nrows=0).columns.tolist()
             usecols = [c for c in header if c in needed]
-            # category 类型大幅节省字符串列内存
+            # category type greatly reduces memory for string columns
             cat_cols = {"ort", "namn", "sort", "typ"}
             dtype = {c: "category" for c in usecols if c in cat_cols}
             df = pd.read_csv(DATA_FILE, usecols=usecols, dtype=dtype)
@@ -289,13 +289,13 @@ def _get_raw_df():
                              + df["_week"].astype(str).str.zfill(2)).astype("category")
             df["_day"]    = df["datum"].dt.day_name().astype("category")
             df["faktisk"] = (df["antal_ordrar"] - df["antal_returer"]).clip(lower=0).astype("int32")
-            # 释放原始数值列节省内存
+            # Free original numeric columns to save memory
             df.drop(columns=["antal_ordrar", "antal_returer"], errors="ignore", inplace=True)
-            # 过滤暂停产品
+            # Filter out paused products
             mask = df["sort"].astype(str).str.contains(
                 r"beställ ej|Paus|\(EC\)", case=False, na=False)
             df = df[~mask]
-            # 过滤非门店
+            # Filter out non-stores
             store_sum  = df.groupby("namn")["faktisk"].sum()
             non_stores = store_sum[store_sum == 0].index.tolist() + ["Prover", "Alina Systems"]
             df = df[~df["namn"].isin(non_stores)]
@@ -309,8 +309,8 @@ def _get_raw_df():
 
 def compute_week_actual(year_week: str):
     """
-    从 1year.csv 计算某周的司机视图和厨房视图。
-    返回 {"driver": {…}, "kitchen": {…}}，无数据时返回 None。
+    Compute driver view and kitchen view for a given week from 1year.csv.
+    Returns {"driver": {…}, "kitchen": {…}}, or None if no data.
     """
     if year_week in _hist_cache:
         return _hist_cache[year_week]
@@ -323,7 +323,7 @@ def compute_week_actual(year_week: str):
     if week_df.empty:
         return None
 
-    # ── 司机视图 ──
+    # ── Driver view ──
     sd = week_df.groupby(["ort", "namn", "_day"]).agg(
         qty=("faktisk", "sum")).reset_index()
     pd_ = (week_df[week_df["faktisk"] > 0]
@@ -339,7 +339,7 @@ def compute_week_actual(year_week: str):
             "day":       day,
             "day_label": day_label(year_week, day),
             "qty":       qty,
-            "range":     str(qty),   # 实际数据 = 精确值，无区间
+            "range":     str(qty),   # Actual data = exact value, no range
             "products":  " | ".join(prods),
             "n":         len(prods),
         })
@@ -347,7 +347,7 @@ def compute_week_actual(year_week: str):
         for namn in driver[ort]:
             driver[ort][namn].sort(key=lambda x: DAY_ORDER.get(x["day"], 9))
 
-    # ── 厨房视图 ──
+    # ── Kitchen view ──
     cat = week_df.groupby(["_day", "typ", "sort"]).agg(
         qty=("faktisk", "sum"), stores=("namn", "nunique")).reset_index()
     cat = cat[cat["qty"] > 0]
@@ -371,9 +371,9 @@ def compute_week_actual(year_week: str):
 
 def compute_date_range_actual(start_str: str, end_str: str):
     """
-    从 1year.csv 按任意日期区间计算司机视图和厨房视图。
-    每个条目使用实际日期作为标签（如 'Mån 9/3'）。
-    返回 {"driver": {…}, "kitchen": {…}}，无数据时返回 None。
+    Compute driver view and kitchen view from 1year.csv for any date range.
+    Each entry uses the actual date as its label (e.g. 'Mån 9/3').
+    Returns {"driver": {…}, "kitchen": {…}}, or None if no data.
     """
     cache_key = (start_str, end_str)
     if cache_key in _range_cache:
@@ -385,7 +385,7 @@ def compute_date_range_actual(start_str: str, end_str: str):
         return None
     try:
         s = pd.Timestamp(start_str)
-        e = pd.Timestamp(end_str) + pd.Timedelta(days=1)  # 包含结束日
+        e = pd.Timestamp(end_str) + pd.Timedelta(days=1)  # include end date
     except Exception:
         return None
 
@@ -393,13 +393,13 @@ def compute_date_range_actual(start_str: str, end_str: str):
     if rdf.empty:
         return None
 
-    # 生成日期标签：'Mån 9/3'
+    # Generate date labels: 'Mån 9/3'
     rdf["_dstr"]  = rdf["datum"].apply(lambda d: f"{d.day}/{d.month}")
     rdf["_dlbl"]  = (rdf["_day"].map(DAY_SHORT).fillna("").astype(str)
                      + " " + rdf["_dstr"])
-    rdf["_dsort"] = rdf["datum"].dt.date   # 用于排序
+    rdf["_dsort"] = rdf["datum"].dt.date   # used for sorting
 
-    # ── 司机视图 ──
+    # ── Driver view ──
     sd = (rdf.groupby(["ort", "namn", "_dsort", "_dlbl"])
              .agg(qty=("faktisk", "sum"))
              .reset_index())
@@ -424,7 +424,7 @@ def compute_date_range_actual(start_str: str, end_str: str):
         for namn in driver[ort]:
             driver[ort][namn].sort(key=lambda x: x["day"])
 
-    # ── 厨房视图 ──
+    # ── Kitchen view ──
     cat = (rdf.groupby(["_dsort", "_dlbl", "typ", "sort"])
               .agg(qty=("faktisk", "sum"), stores=("namn", "nunique"))
               .reset_index())
@@ -447,11 +447,11 @@ def compute_date_range_actual(start_str: str, end_str: str):
 
 
 def _should_show_prediction(from_d_str: str, to_d_str: str) -> bool:
-    """判断是否应该显示预测数据。
-    仅对以下两种情况显示预测：
-      1. 请求区间与当前送货周（本周）有重叠
-      2. 请求区间与模型预测周（W11等）有重叠
-    W12、W13 等更远的未来周返回 False（没有可靠预测）。
+    """Determine whether prediction data should be shown.
+    Only show predictions in the following two cases:
+      1. The requested range overlaps with the current delivery week (this week)
+      2. The requested range overlaps with the model's predicted week (W11, etc.)
+    W12, W13 and further future weeks return False (no reliable prediction).
     """
     from datetime import date as _date
     try:
@@ -460,17 +460,17 @@ def _should_show_prediction(from_d_str: str, to_d_str: str) -> bool:
     except Exception:
         return False
     today = _date.today()
-    if e < today:          # 纯历史区间
+    if e < today:          # purely historical range
         return False
 
-    # ① 当前送货周（以周日为起点）
+    # ① Current delivery week (starting from Sunday)
     wd       = today.weekday()            # Mon=0 … Sun=6
-    curr_sun = today - timedelta(days=(wd + 1) % 7)   # 本周周日
-    curr_sat = curr_sun + timedelta(days=6)             # 本周周六
+    curr_sun = today - timedelta(days=(wd + 1) % 7)   # this week's Sunday
+    curr_sat = curr_sun + timedelta(days=6)             # this week's Saturday
     if s <= curr_sat and e >= curr_sun:
         return True
 
-    # ② 模型预测周
+    # ② Model predicted week
     pw = get_predicted_week()
     if pw:
         pm = week_monday(pw)
@@ -484,8 +484,8 @@ def _should_show_prediction(from_d_str: str, to_d_str: str) -> bool:
 
 
 def _pred_date_map(start_str: str, end_str: str):
-    """若日期区间与预测周有重叠，返回 (pred_mon, overlap_dates_set)，否则 None。
-    eataway 送货周 = 周日(-1) 到 周六(+5)，以周一为基准。
+    """If the date range overlaps with the predicted week, return (pred_mon, overlap_dates_set), otherwise None.
+    eataway delivery week = Sunday(-1) to Saturday(+5), based on Monday.
     """
     from datetime import date as _date
     pred_week = get_predicted_week()
@@ -499,12 +499,12 @@ def _pred_date_map(start_str: str, end_str: str):
         e = _date.fromisoformat(end_str)
     except Exception:
         return None
-    # 送货周：周日(offset=-1) 到 周六(offset=+5)
-    pred_start_d = (pred_mon - timedelta(days=1)).date()   # 周日
-    pred_end_d   = (pred_mon + timedelta(days=5)).date()   # 周六
+    # Delivery week: Sunday(offset=-1) to Saturday(offset=+5)
+    pred_start_d = (pred_mon - timedelta(days=1)).date()   # Sunday
+    pred_end_d   = (pred_mon + timedelta(days=5)).date()   # Saturday
     if e < pred_start_d or s > pred_end_d:
         return None
-    # 只保留落在请求范围内的预测周日期（周日=-1 到 周六=+5）
+    # Only keep predicted week dates that fall within the requested range (Sunday=-1 to Saturday=+5)
     in_range = set()
     for offset in range(-1, 6):
         d = (pred_mon + timedelta(days=offset)).date()
@@ -514,9 +514,9 @@ def _pred_date_map(start_str: str, end_str: str):
 
 
 def get_driver_predicted_for_dates(start_str: str, end_str: str) -> dict:
-    """按星期几将模型预测映射到请求日期范围内的实际日期。
-    模型输出是星期几级别的规律，可应用于任意周（本周、下周等）。
-    每种星期几取范围内第一次出现的日期。
+    """Map model predictions by weekday to actual dates within the requested date range.
+    Model output is a weekday-level pattern that can be applied to any week (this week, next week, etc.).
+    For each weekday, use the first occurrence within the range.
     """
     from datetime import date as _date
     df = load_csv(OUTPUT_DIR / "driver_view_v7.csv")
@@ -528,7 +528,7 @@ def get_driver_predicted_for_dates(start_str: str, end_str: str) -> dict:
     except Exception:
         return {}
 
-    # 建立 day-name → 实际日期 映射（每种星期几取范围内第一次出现的日期）
+    # Build day-name → actual date mapping (for each weekday, use first occurrence within range)
     day_to_date = {}
     for offset in range((e - s).days + 1):
         d = s + timedelta(days=offset)
@@ -565,7 +565,7 @@ def get_driver_predicted_for_dates(start_str: str, end_str: str) -> dict:
 
 
 def get_kitchen_predicted_for_dates(start_str: str, end_str: str) -> dict:
-    """按星期几将厨房预测映射到请求日期范围内的实际日期。"""
+    """Map kitchen predictions by weekday to actual dates within the requested date range."""
     from datetime import date as _date
     df = load_csv(OUTPUT_DIR / "kitchen_view_v7.csv")
     if df is None:
@@ -608,14 +608,14 @@ def get_kitchen_predicted_for_dates(start_str: str, end_str: str) -> dict:
 
 
 def get_flat_predicted(from_d: str, to_d: str) -> list:
-    """将预测展平为 datum/ort/namn/typ/sort/qty 行列表。
-    解析 driver_view_v7.csv 的 Products 列，并从 kitchen_view_v7.csv 获取 typ。
+    """Flatten predictions into a list of datum/ort/namn/typ/sort/qty rows.
+    Parses the Products column of driver_view_v7.csv and gets typ from kitchen_view_v7.csv.
     """
     from datetime import date as _date
     df = load_csv(OUTPUT_DIR / "driver_view_v7.csv")
     if df is None:
         return []
-    # 构建 sort→typ 映射（来自厨房视图）
+    # Build sort→typ mapping (from kitchen view)
     df_kit = load_csv(OUTPUT_DIR / "kitchen_view_v7.csv")
     prod_type: dict = {}
     if df_kit is not None and "Product" in df_kit.columns and "Type" in df_kit.columns:
@@ -626,7 +626,7 @@ def get_flat_predicted(from_d: str, to_d: str) -> list:
         e = _date.fromisoformat(to_d)
     except Exception:
         return []
-    # 星期几→实际日期映射
+    # Weekday → actual date mapping
     day_to_date: dict = {}
     for offset in range((e - s).days + 1):
         d = s + timedelta(days=offset)
@@ -670,7 +670,7 @@ def get_flat_predicted(from_d: str, to_d: str) -> list:
 
 
 def get_flat_actual(from_d: str, to_d: str) -> list:
-    """从历史 1year.csv 提取 datum/ort/namn/typ/sort/qty 行列表。"""
+    """Extract datum/ort/namn/typ/sort/qty row list from historical 1year.csv."""
     import pandas as pd
     df = _get_raw_df()
     if df is None:
@@ -697,13 +697,13 @@ def get_flat_actual(from_d: str, to_d: str) -> list:
     ]
 
 
-# ── Google Sheets 导出 ────────────────────────────────────────
+# ── Google Sheets export ──────────────────────────────────────
 def _get_gsheet_creds():
     """
-    读取 Google 服务账号凭证。
-    优先顺序：
-      1. 环境变量 GOOGLE_SHEETS_CREDS（Render 云端，JSON 字符串）
-      2. 本地文件 credentials.json（本地开发）
+    Read Google service account credentials.
+    Priority order:
+      1. Environment variable GOOGLE_SHEETS_CREDS (Railway cloud, JSON string)
+      2. Local file credentials.json (local development)
     """
     import json as _json
     from google.oauth2.service_account import Credentials
@@ -713,31 +713,31 @@ def _get_gsheet_creds():
         "https://www.googleapis.com/auth/drive",
     ]
 
-    # ① 优先读环境变量（Render 云端）
+    # ① Prefer reading from environment variable (Railway cloud)
     creds_json = os.environ.get("GOOGLE_SHEETS_CREDS", "")
     if creds_json:
         info = _json.loads(creds_json)
         return Credentials.from_service_account_info(info, scopes=scopes)
 
-    # ② 回退到本地文件（本地开发）
+    # ② Fall back to local file (local development)
     if CREDENTIALS_FILE.exists():
         return Credentials.from_service_account_file(str(CREDENTIALS_FILE), scopes=scopes)
 
     raise FileNotFoundError(
-        "找不到 Google 凭证：请设置环境变量 GOOGLE_SHEETS_CREDS，"
-        f"或把 credentials.json 放到 {CREDENTIALS_FILE}"
+        "Google credentials not found: please set environment variable GOOGLE_SHEETS_CREDS, "
+        f"or place credentials.json at {CREDENTIALS_FILE}"
     )
 
 
 def export_to_gsheet(from_d: str = "", to_d: str = "") -> dict:
-    """将预测 Tabell 数据（datum/ort/namn/typ/sort/qty）写入 Google Sheet（覆盖）。"""
+    """Write predicted Tabell data (datum/ort/namn/typ/sort/qty) to Google Sheet (overwrite)."""
     try:
         import gspread
         from google.oauth2.service_account import Credentials  # noqa: F401
     except ImportError:
-        return {"ok": False, "msg": "缺少依赖，请运行: pip install gspread google-auth"}
+        return {"ok": False, "msg": "Missing dependencies, please run: pip install gspread google-auth"}
 
-    # 若未指定日期，自动取当前预测周（周日→周六）
+    # If no date specified, automatically use the current predicted week (Sunday → Saturday)
     if not from_d or not to_d:
         pred_week = get_predicted_week()
         if pred_week:
@@ -746,24 +746,24 @@ def export_to_gsheet(from_d: str = "", to_d: str = "") -> dict:
                 from_d = (mon - timedelta(days=1)).strftime("%Y-%m-%d")
                 to_d   = (mon + timedelta(days=5)).strftime("%Y-%m-%d")
     if not from_d or not to_d:
-        return {"ok": False, "msg": "找不到预测周，无法导出"}
+        return {"ok": False, "msg": "Predicted week not found, cannot export"}
 
     rows = get_flat_predicted(from_d, to_d)
     if not rows:
-        return {"ok": False, "msg": "没有预测数据可导出"}
+        return {"ok": False, "msg": "No prediction data to export"}
 
     try:
         creds = _get_gsheet_creds()
         gc    = gspread.authorize(creds)
         sh    = gc.open_by_key(GSHEET_ID)
 
-        # 获取或新建工作表 Tab
+        # Get or create worksheet Tab
         try:
             ws = sh.worksheet(GSHEET_TAB)
         except gspread.exceptions.WorksheetNotFound:
             ws = sh.add_worksheet(title=GSHEET_TAB, rows=5000, cols=10)
 
-        # 清空并覆盖写入
+        # Clear and overwrite
         ws.clear()
         header = [["Datum", "Ort", "Butik", "Typ", "Produkt", "Antal"]]
         data   = header + [
@@ -773,13 +773,13 @@ def export_to_gsheet(from_d: str = "", to_d: str = "") -> dict:
         ws.update(data, "A1")
 
         date_label = fmt_date_range(from_d, to_d)
-        return {"ok": True, "msg": f"已写入 {len(rows)} 行（{date_label}）→ Google Sheet ✓"}
+        return {"ok": True, "msg": f"Wrote {len(rows)} rows ({date_label}) → Google Sheet ✓"}
     except Exception as e:
         return {"ok": False, "msg": str(e)}
 
 
 def get_all_weeks():
-    """返回所有可用周（实际 + 预测）。"""
+    """Return all available weeks (actual + predicted)."""
     weeks = {}
     df = _get_raw_df()
     if df is not None:
@@ -787,29 +787,29 @@ def get_all_weeks():
             weeks[yw] = "actual"
     pred = get_predicted_week()
     if pred:
-        # 模型输出周及之后都标为预测
+        # Mark the model output week and beyond as predicted
         if pred not in weeks:
             weeks[pred] = "predicted"
         else:
-            weeks[pred] = "predicted"   # 覆盖（最近几周数据不完整）
+            weeks[pred] = "predicted"   # override (recent weeks have incomplete data)
     return sorted([{"week": k, "type": v} for k, v in weeks.items()],
                   key=lambda x: x["week"])
 
 
-# ── 路由 ──────────────────────────────────────────────────────
+# ── Routes ────────────────────────────────────────────────────
 @app.route("/")
 def index():
     has_output = (OUTPUT_DIR / "driver_view_v7.csv").exists()
     metrics    = get_metrics() if has_output else None
     pred_week  = get_predicted_week() if has_output else ""
 
-    # 默认日期区间 = 预测送货周（周日到周六）
-    # eataway 送货周：周日(offset=-1) 到 周六(offset=+5)
+    # Default date range = predicted delivery week (Sunday to Saturday)
+    # eataway delivery week: Sunday(offset=-1) to Saturday(offset=+5)
     if pred_week:
         mon = week_monday(pred_week)
         if mon:
-            init_from = (mon - timedelta(days=1)).strftime("%Y-%m-%d")  # 周日
-            init_to   = (mon + timedelta(days=5)).strftime("%Y-%m-%d")  # 周六
+            init_from = (mon - timedelta(days=1)).strftime("%Y-%m-%d")  # Sunday
+            init_to   = (mon + timedelta(days=5)).strftime("%Y-%m-%d")  # Saturday
         else:
             init_from = init_to = ""
     else:
@@ -817,7 +817,7 @@ def index():
         init_from = today.strftime("%Y-%m-%d")
         init_to   = today.strftime("%Y-%m-%d")
 
-    # 最早可选日期 = 历史数据最早日期
+    # Earliest selectable date = earliest date in historical data
     df_raw   = _get_raw_df()
     min_date = ""
     if df_raw is not None and "datum" in df_raw.columns:
@@ -838,7 +838,7 @@ def api_weeks():
 
 @app.route("/api/flat")
 def api_flat():
-    """返回平铺表格数据：datum/ort/namn/typ/sort/qty 行列表。"""
+    """Return flat table data: datum/ort/namn/typ/sort/qty row list."""
     from_d = request.args.get("from", "").strip()
     to_d   = request.args.get("to",   "").strip()
     if not from_d or not to_d:
@@ -859,7 +859,7 @@ def api_flat():
 
 @app.route("/api/download/flat")
 def api_download_flat():
-    """下载平铺格式 CSV：datum/ort/namn/typ/sort/qty。"""
+    """Download flat-format CSV: datum/ort/namn/typ/sort/qty."""
     from_d = request.args.get("from", "").strip()
     to_d   = request.args.get("to",   "").strip()
     if not from_d or not to_d:
@@ -877,7 +877,7 @@ def api_download_flat():
     writer = csv_mod.DictWriter(buf, fieldnames=["datum","ort","namn","typ","sort","qty"])
     writer.writeheader()
     writer.writerows(rows)
-    csv_bytes = ("\ufeff" + buf.getvalue()).encode("utf-8")   # BOM for Excel
+    csv_bytes = ("\ufeff" + buf.getvalue()).encode("utf-8")   # BOM for Excel compatibility
     filename = f"eataway_{from_d}_{to_d}.csv"
     return Response(csv_bytes, mimetype="text/csv",
                     headers={"Content-Disposition": f"attachment; filename={filename}"})
@@ -889,14 +889,14 @@ def api_driver():
     week   = request.args.get("week", "").strip()
     pred   = get_predicted_week()
 
-    # ── 日期区间模式（新UI使用） ───────────────────────────────────────
+    # ── Date range mode (used by new UI) ─────────────────────────────
     if from_d and to_d:
         date_range_label = fmt_date_range(from_d, to_d)
-        # 仅对本周或预测周显示预测，避免 W12+ 全部返回同一份数据
+        # Only show predictions for current week or predicted week, to avoid W12+ all returning the same data
         is_future = _should_show_prediction(from_d, to_d)
 
         if is_future:
-            # 含未来日期 → 优先返回模型预测（按星期几映射到请求日期）
+            # Contains future dates → prefer returning model predictions (mapped by weekday to requested dates)
             pred_data = get_driver_predicted_for_dates(from_d, to_d)
             if pred_data:
                 return jsonify({
@@ -904,7 +904,7 @@ def api_driver():
                     "date_range": date_range_label,
                     "type":       "predicted",
                 })
-        # 纯历史日期 → 查实际数据
+        # Purely historical dates → look up actual data
         actual = compute_date_range_actual(from_d, to_d)
         if actual is not None:
             return jsonify({
@@ -912,7 +912,7 @@ def api_driver():
                 "date_range": date_range_label,
                 "type":       "actual",
             })
-        # 无历史数据也尝试预测
+        # No historical data, also try predictions
         pred_data = get_driver_predicted_for_dates(from_d, to_d)
         if pred_data:
             return jsonify({
@@ -922,11 +922,11 @@ def api_driver():
             })
         return jsonify({"data": {}, "date_range": date_range_label, "type": "nodata"})
 
-    # ── 周模式（向后兼容旧参数） ──────────────────────────────────────
+    # ── Week mode (backward compatible with old parameters) ───────────
     if not week:
         week = pred
 
-    # 优先尝试历史实际数据
+    # Prefer historical actual data first
     actual = compute_week_actual(week) if week else None
     if actual is not None:
         return jsonify({
@@ -936,7 +936,7 @@ def api_driver():
             "type":       "actual",
         })
 
-    # 无实际数据 → 只为"模型预测周"返回预测，其余周返回nodata（避免所有未来周都显示同一数据）
+    # No actual data → only return predictions for "model predicted week", return nodata for other weeks (avoids all future weeks showing the same data)
     if pred and week == pred:
         return jsonify({
             "data":       get_driver_predicted(display_yw=week),
@@ -955,7 +955,7 @@ def api_kitchen():
     week   = request.args.get("week", "").strip()
     pred   = get_predicted_week()
 
-    # ── 日期区间模式 ───────────────────────────────────────────────────
+    # ── Date range mode ───────────────────────────────────────────────
     if from_d and to_d:
         date_range_label = fmt_date_range(from_d, to_d)
         is_future = _should_show_prediction(from_d, to_d)
@@ -984,7 +984,7 @@ def api_kitchen():
             })
         return jsonify({"data": {}, "date_range": date_range_label, "type": "nodata"})
 
-    # ── 周模式（向后兼容） ─────────────────────────────────────────────
+    # ── Week mode (backward compatible) ───────────────────────────────
     if not week:
         week = pred
 
@@ -1011,9 +1011,9 @@ def api_kitchen():
 @app.route("/api/run", methods=["POST"])
 def api_run():
     if not _password_ok():
-        return jsonify({"ok": False, "msg": "密码错误"}), 403
+        return jsonify({"ok": False, "msg": "Invalid password"}), 403
     if pipeline_status["running"]:
-        return jsonify({"ok": False, "msg": "流水线正在运行中"})
+        return jsonify({"ok": False, "msg": "Pipeline already running"})
     threading.Thread(target=run_pipeline_thread, daemon=True).start()
     return jsonify({"ok": True})
 
@@ -1029,36 +1029,58 @@ def api_status():
 @app.route("/api/upload", methods=["POST"])
 def api_upload():
     if not _password_ok():
-        return jsonify({"ok": False, "msg": "密码错误"}), 403
+        return jsonify({"ok": False, "msg": "Invalid password"}), 403
     f = request.files.get("file")
     if not f or not f.filename:
-        return jsonify({"ok": False, "msg": "未选择文件"})
+        return jsonify({"ok": False, "msg": "No file selected"})
     fname = f.filename.lower()
     if not (fname.endswith(".csv") or fname.endswith(".zip")):
-        return jsonify({"ok": False, "msg": "只接受 CSV 或 ZIP 文件"})
+        return jsonify({"ok": False, "msg": "Only CSV or ZIP files accepted"})
     try:
         DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
         if fname.endswith(".zip"):
-            # 保存 zip 并解压出 1year.csv
+            # Save zip and extract 1year.csv
             import zipfile, io
             data = f.read()
             with zipfile.ZipFile(io.BytesIO(data), "r") as zf:
                 names = zf.namelist()
                 csv_name = next((n for n in names if n.endswith(".csv")), None)
                 if not csv_name:
-                    return jsonify({"ok": False, "msg": "ZIP 里未找到 CSV 文件"})
+                    return jsonify({"ok": False, "msg": "No CSV file found in ZIP"})
                 with zf.open(csv_name) as src, open(DATA_FILE, "wb") as dst:
                     dst.write(src.read())
         else:
             f.save(str(DATA_FILE))
-        # 使缓存失效
+        # Invalidate cache
         _raw_state["df"] = None
         _hist_cache.clear()
         _range_cache.clear()
         size_mb = DATA_FILE.stat().st_size / 1024 / 1024
-        return jsonify({"ok": True, "msg": f"上传成功 ({size_mb:.1f} MB)，历史数据已更新"})
+        return jsonify({"ok": True, "msg": f"Upload successful ({size_mb:.1f} MB), historical data updated"})
     except Exception as e:
         return jsonify({"ok": False, "msg": str(e)})
+
+@app.route("/api/upload-results", methods=["POST"])
+def api_upload_results():
+    """Receive a locally-trained prediction results ZIP and extract it to overwrite output_v7/ and predictions/."""
+    if not _password_ok():
+        return jsonify({"ok": False, "msg": "Invalid password"}), 403
+    f = request.files.get("file")
+    if not f:
+        return jsonify({"ok": False, "msg": "No file selected"})
+    try:
+        import zipfile, io as _io
+        data = f.read()
+        with zipfile.ZipFile(_io.BytesIO(data), "r") as zf:
+            zf.extractall(BASE_DIR)
+        # Clear all caches so new data takes effect immediately
+        _raw_state["df"] = None
+        _hist_cache.clear()
+        _range_cache.clear()
+        return jsonify({"ok": True, "msg": "Prediction results updated ✓"})
+    except Exception as e:
+        return jsonify({"ok": False, "msg": str(e)})
+
 
 @app.route("/api/diagnostics")
 def api_diagnostics():
@@ -1079,7 +1101,7 @@ def api_download(name):
 
 @app.route("/api/export-gsheet", methods=["POST"])
 def api_export_gsheet():
-    """手动触发：将 Tabell 预测数据导出到 Google Sheet。"""
+    """Manual trigger: export Tabell prediction data to Google Sheet."""
     body   = request.get_json(silent=True) or {}
     from_d = body.get("from", "")
     to_d   = body.get("to",   "")
@@ -1087,14 +1109,14 @@ def api_export_gsheet():
     return jsonify(result)
 
 
-# ── 启动 ──────────────────────────────────────────────────────
+# ── Startup ───────────────────────────────────────────────────
 if __name__ == "__main__":
     port     = int(os.environ.get("PORT", 5000))
     is_local = not os.environ.get("PORT")
     print("\n" + "=" * 50)
     print(f"  Eataway  http://127.0.0.1:{port}")
     if APP_PASSWORD:
-        print("  密码保护: 已启用")
+        print("  Password protection: enabled")
     print("=" * 50 + "\n")
     if is_local:
         import threading, webbrowser
