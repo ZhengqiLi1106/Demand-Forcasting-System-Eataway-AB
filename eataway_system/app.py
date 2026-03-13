@@ -8,7 +8,7 @@ Optional password protection: set environment variable APP_PASSWORD=your_passwor
   → Uploading data and triggering training requires a password; viewing data does not
 
 Date selection functionality:
-  - Select a past date → shows real shipment data from 1year.csv (FAKTISK)
+  - Select a past date → shows real shipment data from DB (FAKTISK)
   - Select a future/current week → shows model prediction results (PROGNOS)
 """
 
@@ -22,15 +22,27 @@ from pathlib import Path
 from flask import Flask, render_template, jsonify, send_file, request
 
 app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024  # Max upload 200MB (1year.csv is ~108MB)
+app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024  # Max upload 200MB
 
 # ── Path configuration ────────────────────────────────────────
 BASE_DIR         = Path(__file__).parent.parent
 OUTPUT_DIR       = BASE_DIR / "output_v7"
 FEATURE_SCRIPT   = BASE_DIR / "feature.py"
 TRAIN_SCRIPT     = BASE_DIR / "eataway_train_v7.py"
-DATA_FILE        = BASE_DIR / "1year.csv"
-DATA_ZIP         = BASE_DIR / "1year.csv.zip"   # GitHub-friendly fallback (6.8 MB)
+DATA_FILE        = BASE_DIR / "1year.csv"        # fallback only (local dev)
+DATA_ZIP         = BASE_DIR / "1year.csv.zip"    # fallback only (local dev)
+
+# ── Database config (Railway: set these as environment variables) ──────────
+_DB_CFG = {
+    "host":     os.environ.get("DB_HOST"),
+    "port":     int(os.environ.get("DB_PORT", 3306)),
+    "user":     os.environ.get("DB_USER"),
+    "password": os.environ.get("DB_PASSWORD"),
+    "database": os.environ.get("DB_NAME"),
+    "charset":  "utf8mb4",
+} if os.environ.get("DB_HOST") else None
+
+DB_CACHE_SECONDS = 4 * 3600   # re-fetch from DB at most once every 4 hours
 
 # ── Google Sheets configuration ───────────────────────────────
 CREDENTIALS_FILE = Path(__file__).parent / "credentials.json"
@@ -255,50 +267,88 @@ def get_metrics():
     return df.iloc[0].to_dict()
 
 
-# ── Historical actual data (from 1year.csv) ───────────────────
-_raw_state   = {"df": None, "mtime": None}
+# ── Historical actual data ─────────────────────────────────────
+_raw_state   = {"df": None, "mtime": None, "db_fetched_at": None}
 _hist_cache  = {}   # year_week → {"driver": {…}, "kitchen": {…}}
 _range_cache = {}   # (start, end) → {"driver": {…}, "kitchen": {…}}
 
+
+def _process_raw_df(df) -> "pd.DataFrame":
+    """Shared post-processing for raw DB or CSV data."""
+    import pandas as pd
+    df = df.copy()
+    df["datum"]   = pd.to_datetime(df["datum"], errors="coerce")
+    df = df.dropna(subset=["datum"])
+    # Use category types to reduce memory
+    for col in ("ort", "namn", "sort", "typ"):
+        if col in df.columns:
+            df[col] = df[col].astype("category")
+    df["_year"]   = df["datum"].dt.isocalendar().year.astype("int16")
+    df["_week"]   = df["datum"].dt.isocalendar().week.astype("int8")
+    df["_yw"]     = (df["_year"].astype(str) + "-W"
+                     + df["_week"].astype(str).str.zfill(2)).astype("category")
+    df["_day"]    = df["datum"].dt.day_name().astype("category")
+    df["faktisk"] = (df["antal_ordrar"] - df["antal_returer"]).clip(lower=0).astype("int32")
+    df.drop(columns=["antal_ordrar", "antal_returer"], errors="ignore", inplace=True)
+    # Filter out paused products
+    mask = df["sort"].astype(str).str.contains(
+        r"beställ ej|Paus|\(EC\)", case=False, na=False)
+    df = df[~mask]
+    # Filter out non-stores
+    store_sum  = df.groupby("namn")["faktisk"].sum()
+    non_stores = store_sum[store_sum == 0].index.tolist() + ["Prover", "Alina Systems"]
+    df = df[~df["namn"].isin(non_stores)]
+    return df
+
+
 def _get_raw_df():
-    """1year.csv loader with mtime caching. Automatically invalidates when file changes.
-    Memory optimized: only loads necessary columns + uses category types, reducing memory from ~400 MB to ~80 MB.
+    """Load historical data — DB first (when DB_HOST is set), fallback to 1year.csv.
+    DB result is cached for DB_CACHE_SECONDS to avoid hitting the database on every request.
     """
-    _ensure_data_file()          # If no CSV, try to extract from zip
+    import time
+    import pandas as pd
+
+    # ── Primary: fetch from DB if configured ──────────────────
+    if _DB_CFG:
+        now  = time.time()
+        last = _raw_state["db_fetched_at"]
+        if _raw_state["df"] is not None and last and (now - last) < DB_CACHE_SECONDS:
+            return _raw_state["df"]
+        try:
+            import pymysql
+            conn = pymysql.connect(**_DB_CFG)
+            try:
+                raw = pd.read_sql(
+                    """SELECT datum, namn, ort, typ, sort, antal_ordrar, antal_returer
+                       FROM ordrar_och_returer_looker_1y
+                       WHERE datum >= DATE_SUB(CURDATE(), INTERVAL 730 DAY)
+                       ORDER BY datum""",
+                    conn)
+            finally:
+                conn.close()
+            df = _process_raw_df(raw)
+            _raw_state["df"]           = df
+            _raw_state["db_fetched_at"] = now
+            _hist_cache.clear()
+            _range_cache.clear()
+            print(f"✓ DB: loaded {len(df):,} rows")
+            return df
+        except Exception as e:
+            print(f"⚠ DB load failed ({e}), falling back to file")
+
+    # ── Fallback: read from 1year.csv (local dev / Railway without DB vars) ──
+    _ensure_data_file()
     if not DATA_FILE.exists():
         return None
     try:
-        import pandas as pd
         mtime = DATA_FILE.stat().st_mtime
         if _raw_state["df"] is None or _raw_state["mtime"] != mtime:
-            # ── Only read needed columns to significantly reduce memory ─
-            needed = {"datum", "antal_ordrar", "antal_returer",
-                      "ort", "namn", "sort", "typ"}
-            # Probe actual column names first (handles inconsistent column names)
-            header = pd.read_csv(DATA_FILE, nrows=0).columns.tolist()
+            needed  = {"datum", "antal_ordrar", "antal_returer", "ort", "namn", "sort", "typ"}
+            header  = pd.read_csv(DATA_FILE, nrows=0).columns.tolist()
             usecols = [c for c in header if c in needed]
-            # category type greatly reduces memory for string columns
-            cat_cols = {"ort", "namn", "sort", "typ"}
-            dtype = {c: "category" for c in usecols if c in cat_cols}
-            df = pd.read_csv(DATA_FILE, usecols=usecols, dtype=dtype)
-            df["datum"]   = pd.to_datetime(df["datum"], errors="coerce")
-            df = df.dropna(subset=["datum"])
-            df["_year"]   = df["datum"].dt.isocalendar().year.astype("int16")
-            df["_week"]   = df["datum"].dt.isocalendar().week.astype("int8")
-            df["_yw"]     = (df["_year"].astype(str) + "-W"
-                             + df["_week"].astype(str).str.zfill(2)).astype("category")
-            df["_day"]    = df["datum"].dt.day_name().astype("category")
-            df["faktisk"] = (df["antal_ordrar"] - df["antal_returer"]).clip(lower=0).astype("int32")
-            # Free original numeric columns to save memory
-            df.drop(columns=["antal_ordrar", "antal_returer"], errors="ignore", inplace=True)
-            # Filter out paused products
-            mask = df["sort"].astype(str).str.contains(
-                r"beställ ej|Paus|\(EC\)", case=False, na=False)
-            df = df[~mask]
-            # Filter out non-stores
-            store_sum  = df.groupby("namn")["faktisk"].sum()
-            non_stores = store_sum[store_sum == 0].index.tolist() + ["Prover", "Alina Systems"]
-            df = df[~df["namn"].isin(non_stores)]
+            dtype   = {c: "category" for c in usecols if c in {"ort", "namn", "sort", "typ"}}
+            raw     = pd.read_csv(DATA_FILE, usecols=usecols, dtype=dtype)
+            df = _process_raw_df(raw)
             _raw_state["df"]    = df
             _raw_state["mtime"] = mtime
             _hist_cache.clear()

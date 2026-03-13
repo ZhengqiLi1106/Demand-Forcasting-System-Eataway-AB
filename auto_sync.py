@@ -47,7 +47,6 @@ DAYS_HISTORY = 730
 # ============================================================
 
 TABLE          = "ordrar_och_returer_looker_1y"
-DATA_FILE      = BASE_DIR / "1year.csv"
 OUTPUT_DIR     = BASE_DIR / "output_v7"
 PRED_DIR       = BASE_DIR / "predictions"
 FEATURE_SCRIPT = BASE_DIR / "feature.py"
@@ -205,40 +204,25 @@ def main():
     print(f"  Target: {SITE_URL}")
     print("=" * 55)
 
-    # 1. Pull data from database
-    try:
-        df = fetch_from_db()
-    except Exception as e:
-        print(f"✗ Database connection failed: {e}")
-        sys.exit(1)
-
-    # 2. Save locally (training scripts read from this file)
-    print("▶ Saving local data file...")
-    df.to_csv(DATA_FILE, index=False)
-    print(f"  ✓ Saved to {DATA_FILE}")
-
-    # 3. Train locally (no server memory limits)
+    # 1. Train locally — feature.py connects to DB directly
     if not run_local_training():
         print("✗ Local training failed — check errors above")
         sys.exit(1)
 
-    # 4. Push results to GitHub (Railway redeploys automatically)
+    # 2. Push results to GitHub (Railway redeploys automatically)
     git_push_results()
 
-    # 6. Wake server
+    # 3. Wake server
     if not wake_server():
         sys.exit(1)
 
-    # 7. Upload historical data
-    if not upload_history(df):
-        sys.exit(1)
-
-    # 8. Upload prediction results
+    # 4. Upload prediction results
     if not upload_results():
         sys.exit(1)
 
-    # Note: Google Sheet is already exported by eataway_train_v7.py (step 3, local credentials)
-    # trigger_gsheet_export() is skipped — it calls Railway which has no credentials.json
+    # Note: Railway app queries the DB directly (DB_HOST env var set on Railway).
+    # No CSV upload needed — historical data is always live from the database.
+    # Note: Google Sheet is already exported by eataway_train_v7.py (local credentials).
 
     print(f"\n✓ All done! Site updated with latest predictions.")
     print(f"  Visit: {SITE_URL}")
