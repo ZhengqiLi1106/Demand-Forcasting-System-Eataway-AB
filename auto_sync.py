@@ -97,6 +97,26 @@ def run_local_training() -> bool:
     return True
 
 
+def git_push_results() -> bool:
+    """Commit and push the latest prediction files to GitHub so Railway always has them."""
+    print("▶ Pushing results to GitHub...")
+    try:
+        week_label = PRED_DIR.glob("*_driver.csv").__next__().stem.split("_")[0] if PRED_DIR.exists() else "update"
+    except StopIteration:
+        week_label = "update"
+    cmds = [
+        ["git", "add", "output_v7/", "predictions/"],
+        ["git", "commit", "-m", f"update predictions: {week_label}"],
+        ["git", "push"],
+    ]
+    for cmd in cmds:
+        result = subprocess.run(cmd, cwd=str(BASE_DIR), capture_output=True, text=True)
+        if result.returncode != 0 and "nothing to commit" not in result.stdout + result.stderr:
+            print(f"  ! git {cmd[1]} warning: {result.stderr.strip()}")
+    print("  ✓ GitHub updated — Railway will redeploy automatically")
+    return True
+
+
 def wake_server() -> bool:
     print("▶ Connecting to server...")
     for attempt in range(1, 7):
@@ -129,6 +149,26 @@ def upload_history(df: pd.DataFrame) -> bool:
         return True
     print(f"  ✗ Upload failed: {result.get('msg')}")
     return False
+
+
+def trigger_gsheet_export() -> bool:
+    """Tell the server to push the latest predictions to Google Sheet."""
+    print("▶ Exporting to Google Sheet...")
+    try:
+        r = requests.post(
+            f"{SITE_URL}/api/export-gsheet",
+            json={"pw": APP_PASSWORD},
+            timeout=60,
+        )
+        result = r.json()
+        if result.get("ok"):
+            print(f"  ✓ {result['msg']}")
+            return True
+        print(f"  ✗ Export failed: {result.get('msg')}")
+        return False
+    except Exception as e:
+        print(f"  ! Google Sheet export error: {e}")
+        return False
 
 
 def upload_results() -> bool:
@@ -182,17 +222,23 @@ def main():
         print("✗ Local training failed — check errors above")
         sys.exit(1)
 
-    # 4. Wake server
+    # 4. Push results to GitHub (Railway redeploys automatically)
+    git_push_results()
+
+    # 6. Wake server
     if not wake_server():
         sys.exit(1)
 
-    # 5. Upload historical data
+    # 7. Upload historical data
     if not upload_history(df):
         sys.exit(1)
 
-    # 6. Upload prediction results
+    # 8. Upload prediction results
     if not upload_results():
         sys.exit(1)
+
+    # Note: Google Sheet is already exported by eataway_train_v7.py (step 3, local credentials)
+    # trigger_gsheet_export() is skipped — it calls Railway which has no credentials.json
 
     print(f"\n✓ All done! Site updated with latest predictions.")
     print(f"  Visit: {SITE_URL}")
