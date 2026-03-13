@@ -467,14 +467,16 @@ def _should_show_prediction(from_d_str: str, to_d_str: str) -> bool:
     if s > today:
         return True
 
-    # ② Model predicted week (also catches the case where today = first day of delivery week)
+    # ② Model predicted week — only if the range STARTS within the predicted week.
+    # Using "start within window" (not overlap) avoids false-positives when the
+    # ISO week's Sunday coincidentally equals the delivery week's opening Sunday.
     pw = get_predicted_week()
     if pw:
         pm = week_monday(pw)
         if pm:
             pw_sun = (pm - timedelta(days=1)).date()
             pw_sat = (pm + timedelta(days=5)).date()
-            if s <= pw_sat and e >= pw_sun:
+            if pw_sun <= s <= pw_sat:
                 return True
 
     return False
