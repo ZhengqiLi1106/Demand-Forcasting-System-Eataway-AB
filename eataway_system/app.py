@@ -463,14 +463,11 @@ def _should_show_prediction(from_d_str: str, to_d_str: str) -> bool:
     if e < today:          # purely historical range
         return False
 
-    # ① Current delivery week (starting from Sunday)
-    wd       = today.weekday()            # Mon=0 … Sun=6
-    curr_sun = today - timedelta(days=(wd + 1) % 7)   # this week's Sunday
-    curr_sat = curr_sun + timedelta(days=6)             # this week's Saturday
-    if s <= curr_sat and e >= curr_sun:
+    # ① Show predictions only for future ranges (start date strictly after today)
+    if s > today:
         return True
 
-    # ② Model predicted week
+    # ② Model predicted week (also catches the case where today = first day of delivery week)
     pw = get_predicted_week()
     if pw:
         pm = week_monday(pw)
