@@ -478,157 +478,6 @@
     flex-wrap: wrap;
   }
 
-  .status-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .status-dot {
-    width: 8px; height: 8px;
-    border-radius: 50%;
-    background: var(--muted2);
-    flex-shrink: 0;
-  }
-  .status-dot.running { background: var(--orange); animation: pulse 1s infinite; }
-  .status-dot.done    { background: var(--green); }
-  .status-dot.error   { background: var(--red); }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
-
-  /* ── PASSWORD ─────────────────────────────────────────── */
-  .pw-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 16px;
-  }
-  .pw-input {
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    color: var(--text);
-    padding: 7px 11px;
-    font-family: var(--mono);
-    font-size: 12px;
-    width: 200px;
-    outline: none;
-    transition: border-color 0.15s;
-    box-shadow: var(--shadow);
-  }
-  .pw-input:focus { border-color: var(--orange); }
-  .pw-label { font-size: 12px; color: var(--muted); }
-
-  /* ── UPLOAD ───────────────────────────────────────────── */
-  .upload-section {
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 16px 18px;
-    margin-bottom: 16px;
-    box-shadow: var(--shadow);
-  }
-  .upload-title {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text);
-    margin-bottom: 10px;
-  }
-  .upload-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-  .file-input-wrap {
-    position: relative;
-  }
-  .file-input-wrap input[type=file] {
-    position: absolute;
-    inset: 0;
-    opacity: 0;
-    cursor: pointer;
-    width: 100%;
-    height: 100%;
-  }
-  .file-label {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background: var(--bg3);
-    border: 1px solid var(--border2);
-    border-radius: var(--radius);
-    padding: 7px 13px;
-    font-size: 12px;
-    color: var(--muted);
-    cursor: pointer;
-    transition: all 0.15s;
-    white-space: nowrap;
-  }
-  .file-label:hover { border-color: var(--orange); color: var(--orange); }
-  .file-chosen {
-    font-size: 12px;
-    color: var(--muted2);
-    font-family: var(--mono);
-    max-width: 260px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .upload-msg {
-    font-size: 12px;
-    padding: 4px 0;
-    min-height: 20px;
-  }
-  .upload-msg.ok  { color: var(--green); }
-  .upload-msg.err { color: var(--red); }
-
-  .pipeline-info {
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 14px 16px;
-    font-size: 12px;
-    color: var(--muted);
-    line-height: 1.8;
-    margin-bottom: 16px;
-    box-shadow: var(--shadow);
-  }
-  .pipeline-info code {
-    background: var(--bg3);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    padding: 1px 6px;
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--text);
-  }
-
-  .log-box {
-    background: #1e2128;
-    border: 1px solid #2e3340;
-    border-radius: var(--radius);
-    padding: 14px 16px;
-    height: 260px;
-    overflow-y: auto;
-    font-family: var(--mono);
-    font-size: 11px;
-    line-height: 1.7;
-    color: #8da0a8;
-    display: none;
-  }
-  .log-box.visible { display: block; }
-  .log-box .ok   { color: #4ade80; }
-  .log-box .err  { color: #f87171; }
-  .log-box .head { color: #fb923c; }
-
-  /* ── DIAGNOSTICS ─────────────────────────────────────── */
-  .diag-wrap {
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 16px;
-    box-shadow: var(--shadow);
-  }
-  .diag-img { width: 100%; display: block; border-radius: 4px; }
 
   /* ── EMPTY STATE ─────────────────────────────────────── */
   .empty {
@@ -771,8 +620,6 @@
   <div class="tab active" onclick="switchTab('table',this)">📋 Tabell</div>
   <div class="tab" onclick="switchTab('driver',this)">🚚 Chaufförsvy</div>
   <div class="tab" onclick="switchTab('kitchen',this)">🍳 Köksvy</div>
-  <div class="tab" onclick="switchTab('pipeline',this)">⚙ Kör Pipeline</div>
-  <div class="tab" onclick="switchTab('diagnostics',this)">📊 Diagnostik</div>
 </nav>
 
 <main>
@@ -868,7 +715,7 @@
     <div class="empty">
       <div class="empty-icon">🍳</div>
       <h2>Inga resultat ännu</h2>
-      <p>Kör pipeline för att se köksvy.</p>
+      <p>Ingen data tillgänglig.</p>
     </div>
     {% else %}
     <div class="toolbar">
@@ -880,69 +727,6 @@
     {% endif %}
   </div>
 
-  <!-- ════════════════════════════════════════════════════ -->
-  <!-- PIPELINE                                            -->
-  <!-- ════════════════════════════════════════════════════ -->
-  <div id="panel-pipeline" class="panel">
-
-    {% if pw_required %}
-    <div class="pw-row">
-      <span class="pw-label">🔒 Lösenord:</span>
-      <input class="pw-input" id="pw-input" type="password" placeholder="Ange lösenord...">
-    </div>
-    {% endif %}
-
-    <!-- 上传数据文件 -->
-    <div class="upload-section">
-      <div class="upload-title">📂 Uppdatera data (1year.csv)</div>
-      <div class="upload-row">
-        <div class="file-input-wrap">
-          <div class="file-label">📁 Välj CSV-fil</div>
-          <input type="file" id="upload-input" accept=".csv,.zip" onchange="onFileChosen(this)">
-        </div>
-        <span class="file-chosen" id="file-chosen">Ingen fil vald</span>
-        <button class="btn btn-primary" id="upload-btn" onclick="uploadFile()" style="padding:7px 16px;font-size:12px">
-          ↑ Ladda upp
-        </button>
-      </div>
-      <div class="upload-msg" id="upload-msg"></div>
-    </div>
-
-    <!-- 运行训练 -->
-    <div class="run-section">
-      <button class="btn btn-primary" id="run-btn" onclick="runPipeline()">
-        <span id="run-icon">▶</span>
-        <span id="run-label">Kör Veckopipeline</span>
-      </button>
-      <div class="status-row">
-        <span class="status-dot" id="status-dot"></span>
-        <span id="status-text" style="font-size:12px;color:var(--muted)">Redo</span>
-      </div>
-    </div>
-    <div class="pipeline-info">
-      Steg 1: <code>feature.py</code> — datarensning &amp; feature engineering<br>
-      Steg 2: <code>eataway_train_v7.py</code> — modellträning &amp; prognos<br>
-      Output: <code>output_v7/</code>
-    </div>
-    <div class="log-box" id="log-box"></div>
-  </div>
-
-  <!-- ════════════════════════════════════════════════════ -->
-  <!-- DIAGNOSTICS                                         -->
-  <!-- ════════════════════════════════════════════════════ -->
-  <div id="panel-diagnostics" class="panel">
-    {% if not has_output %}
-    <div class="empty">
-      <div class="empty-icon">📊</div>
-      <h2>Inga diagnostik</h2>
-      <p>Kör pipeline för att generera diagnostikdiagram.</p>
-    </div>
-    {% else %}
-    <div class="diag-wrap">
-      <img class="diag-img" src="/api/diagnostics" id="diag-img" alt="Diagnostik">
-    </div>
-    {% endif %}
-  </div>
 
 </main>
 
@@ -950,7 +734,6 @@
 // ── STATE ─────────────────────────────────────────────────────
 let driverData   = null;
 let kitchenData  = null;
-let pollTimer    = null;
 let tableData = [];   // flat rows [{datum,ort,namn,typ,sort,qty}]
 let tableQ    = '';   // search/filter query
 
@@ -1058,13 +841,9 @@ function switchTab(name, el) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   el.classList.add('active');
   document.getElementById('panel-' + name).classList.add('active');
-  if (name === 'table')       loadTable();
-  if (name === 'driver')      loadDriver();
-  if (name === 'kitchen')     loadKitchen();
-  if (name === 'diagnostics') {
-    const img = document.getElementById('diag-img');
-    if (img) img.src = '/api/diagnostics?' + Date.now();
-  }
+  if (name === 'table')   loadTable();
+  if (name === 'driver')  loadDriver();
+  if (name === 'kitchen') loadKitchen();
 }
 
 // ── DRIVER VIEW ───────────────────────────────────────────────
@@ -1387,107 +1166,6 @@ function downloadFlat() {
   window.location.href = url;
 }
 
-
-// ── PASSWORD ───────────────────────────────────────────────────
-function getPassword() {
-  const el = document.getElementById('pw-input');
-  return el ? el.value : '';
-}
-
-// ── UPLOAD ────────────────────────────────────────────────────
-function onFileChosen(input) {
-  const el = document.getElementById('file-chosen');
-  el.textContent = input.files[0] ? input.files[0].name : 'Ingen fil vald';
-  document.getElementById('upload-msg').textContent = '';
-  document.getElementById('upload-msg').className = 'upload-msg';
-}
-
-async function uploadFile() {
-  const input = document.getElementById('upload-input');
-  const msgEl = document.getElementById('upload-msg');
-  const btn   = document.getElementById('upload-btn');
-  if (!input.files[0]) {
-    msgEl.className = 'upload-msg err';
-    msgEl.textContent = '请先选择 CSV 文件';
-    return;
-  }
-  btn.disabled = true;
-  btn.textContent = '上传中...';
-  msgEl.className = 'upload-msg';
-  msgEl.textContent = '';
-  const form = new FormData();
-  form.append('file', input.files[0]);
-  form.append('pw', getPassword());
-  try {
-    const res  = await fetch('/api/upload', {method:'POST', body: form});
-    const json = await res.json();
-    msgEl.className = 'upload-msg ' + (json.ok ? 'ok' : 'err');
-    msgEl.textContent = json.ok ? '✓ ' + json.msg : '✗ ' + json.msg;
-  } catch(e) {
-    msgEl.className = 'upload-msg err';
-    msgEl.textContent = '✗ 上传失败: ' + e;
-  }
-  btn.disabled = false;
-  btn.textContent = '↑ Ladda upp';
-}
-
-// ── PIPELINE ──────────────────────────────────────────────────
-async function runPipeline() {
-  const btn = document.getElementById('run-btn');
-  btn.disabled = true;
-  document.getElementById('run-label').textContent = 'Körs...';
-  document.getElementById('run-icon').textContent  = '⟳';
-  const logBox = document.getElementById('log-box');
-  logBox.innerHTML = '';
-  logBox.classList.add('visible');
-  setStatus('running', 'Körs...');
-  const res = await fetch('/api/run', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json', 'X-App-Password': getPassword()},
-    body: JSON.stringify({pw: getPassword()}),
-  });
-  const json = await res.json();
-  if (!json.ok) {
-    setStatus('error', json.msg || '失败');
-    btn.disabled = false;
-    document.getElementById('run-label').textContent = 'Kör igen';
-    document.getElementById('run-icon').textContent  = '▶';
-    return;
-  }
-  pollTimer = setInterval(pollStatus, 800);
-}
-
-async function pollStatus() {
-  const data = await (await fetch('/api/status')).json();
-  const logBox = document.getElementById('log-box');
-  logBox.innerHTML = data.log.map(line => {
-    let cls = '';
-    if (line.startsWith('✓') || line.includes('完成')) cls = 'ok';
-    else if (line.startsWith('✗') || /error|fail/i.test(line)) cls = 'err';
-    else if (line.startsWith('▶') || line.startsWith('=')) cls = 'head';
-    return `<div class="${cls}">${esc(line)}</div>`;
-  }).join('');
-  logBox.scrollTop = logBox.scrollHeight;
-
-  if (!data.running) {
-    clearInterval(pollTimer);
-    const btn = document.getElementById('run-btn');
-    btn.disabled = false;
-    document.getElementById('run-label').textContent = 'Kör igen';
-    document.getElementById('run-icon').textContent  = '▶';
-    if (data.error) {
-      setStatus('error', 'Fel — se loggen ovan');
-    } else {
-      setStatus('done', 'Klart! Laddar om...');
-      setTimeout(() => location.reload(), 1800);
-    }
-  }
-}
-
-function setStatus(state, text) {
-  document.getElementById('status-dot').className  = 'status-dot ' + state;
-  document.getElementById('status-text').textContent = text;
-}
 
 function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
