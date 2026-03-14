@@ -9,3 +9,4 @@ holidays>=0.40
 gspread>=6.0
 google-auth>=2.0
 pymysql>=1.1
+sqlalchemy>=2.0

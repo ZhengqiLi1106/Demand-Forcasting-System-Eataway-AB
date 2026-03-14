@@ -315,19 +315,26 @@ def _get_raw_df():
         if _raw_state["df"] is not None and last and (now - last) < DB_CACHE_SECONDS:
             return _raw_state["df"]
         try:
-            import pymysql
-            conn = pymysql.connect(**_DB_CFG)
+            import sqlalchemy
+            from urllib.parse import quote_plus
+            pw  = quote_plus(str(_DB_CFG["password"]))
+            url = (f"mysql+pymysql://{_DB_CFG['user']}:{pw}"
+                   f"@{_DB_CFG['host']}:{_DB_CFG['port']}/{_DB_CFG['database']}?charset=utf8mb4")
+            engine = sqlalchemy.create_engine(url, pool_pre_ping=True)
             try:
+                # Apply category dtypes at read time to minimise peak memory usage
                 raw = pd.read_sql(
                     """SELECT datum, namn, ort, typ, sort, antal_ordrar, antal_returer
                        FROM ordrar_och_returer_looker_1y
-                       WHERE datum >= DATE_SUB(CURDATE(), INTERVAL 730 DAY)
+                       WHERE datum >= DATE_SUB(CURDATE(), INTERVAL 365 DAY)
                        ORDER BY datum""",
-                    conn)
+                    engine,
+                    dtype={"namn": "category", "ort": "category",
+                           "sort": "category", "typ": "category"})
             finally:
-                conn.close()
+                engine.dispose()
             df = _process_raw_df(raw)
-            _raw_state["df"]           = df
+            _raw_state["df"]            = df
             _raw_state["db_fetched_at"] = now
             _hist_cache.clear()
             _range_cache.clear()
